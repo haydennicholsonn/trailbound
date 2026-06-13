@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trailbound - Run. Sync. Progress.</title>
+    <meta name="description" content="Project Trailbound app shell for RPG running progression.">
+    <meta name="theme-color" content="#07090f">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/app.css">
+  </head>
+  <body>
+    <div class="app-backdrop" aria-hidden="true"></div>
+
+    <div class="app-shell">
+      <aside class="side-panel">
+        <a class="site-link" href="../" aria-label="Back to hayden showcase">
+          <img src="../assets/img/logo.svg" width="34" height="34" alt="">
+          <span>haydenn.co.za</span>
+        </a>
+
+        <div class="trail-brand">
+          <span class="brand-sigil">TB</span>
+          <div>
+            <p>Project</p>
+            <h1>Trailbound</h1>
+          </div>
+        </div>
+
+        <nav class="app-nav" aria-label="Trailbound navigation">
+          <button class="nav-item is-active" type="button" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" type="button" data-view="world">World Map</button>
+          <button class="nav-item" type="button" data-view="quests">Quest Log</button>
+          <button class="nav-item" type="button" data-view="inventory">Inventory</button>
+          <button class="nav-item" type="button" data-view="skills">Skill Tree</button>
+          <button class="nav-item" type="button" data-view="settings">Settings</button>
+        </nav>
+
+        <section class="auth-card" aria-label="Account">
+          <div class="auth-state" data-auth-state>
+            <span class="state-dot"></span>
+            <strong>Demo state</strong>
+          </div>
+
+          <div class="auth-tabs" role="tablist" aria-label="Account actions">
+            <button class="auth-tab is-active" type="button" data-auth-mode="login">Login</button>
+            <button class="auth-tab" type="button" data-auth-mode="register">Register</button>
+          </div>
+
+          <form class="auth-form" data-auth-form="login">
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="command primary" type="submit">Login</button>
+          </form>
+
+          <form class="auth-form is-hidden" data-auth-form="register">
+            <label>
+              <span>Display name</span>
+              <input name="display_name" type="text" maxlength="80" autocomplete="nickname" required>
+            </label>
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="email" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" minlength="10" autocomplete="new-password" required>
+            </label>
+            <button class="command primary" type="submit">Create account</button>
+          </form>
+
+          <button class="command ghost is-hidden" type="button" data-logout>Logout</button>
+        </section>
+      </aside>
+
+      <main class="main-panel">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Adventure hub</p>
+            <h2 data-player-name>Wayfarer</h2>
+          </div>
+          <div class="top-actions">
+            <button class="command secondary" type="button" data-connect-strava>Connect Strava</button>
+            <button class="command primary" type="button" data-sync-runs>Sync Runs</button>
+          </div>
+        </header>
+
+        <div class="status-line" data-status-line>
+          Local demo active. Add database credentials to unlock account actions.
+        </div>
+
+        <section class="view is-active" data-panel="dashboard">
+          <div class="dashboard-grid">
+            <article class="character-card">
+              <div class="portrait">
+                <img src="../assets/img/avatar.svg" width="220" height="220" alt="Trailbound adventurer avatar">
+              </div>
+              <div class="character-meta">
+                <p class="eyebrow">Character</p>
+                <h3 data-character-class>Wayfarer</h3>
+                <div class="level-row">
+                  <strong data-level>Level 1</strong>
+                  <span data-skill-points>0 skill points</span>
+                </div>
+                <div class="xp-bar" aria-label="XP progress">
+                  <span data-xp-bar></span>
+                </div>
+                <p data-xp-label>0 / 575 XP</p>
+              </div>
+            </article>
+
+            <article class="metric-card">
+              <span>Total distance</span>
+              <strong data-total-distance>0.0 km</strong>
+            </article>
+            <article class="metric-card">
+              <span>Runs completed</span>
+              <strong data-total-runs>0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Weekly streak</span>
+              <strong data-weekly-streak>0 weeks</strong>
+            </article>
+
+            <article class="panel current-quest">
+              <div class="panel-heading">
+                <span>Main quest</span>
+                <strong data-quest-status>Active</strong>
+              </div>
+              <h3 data-current-quest-name>The First Road</h3>
+              <p data-current-quest-desc>Complete one run of at least 2km.</p>
+              <div class="progress-line">
+                <span data-quest-progress></span>
+              </div>
+              <small data-quest-progress-label>0 / 2.0 km</small>
+            </article>
+
+            <article class="panel region-card">
+              <div class="panel-heading">
+                <span>Current region</span>
+                <strong data-region-state>Unlocked</strong>
+              </div>
+              <h3 data-region-name>The First Road</h3>
+              <p data-region-lore>A cold road cuts through the mist. Every step wakes the world.</p>
+              <img src="../assets/img/map-preview.svg" width="620" height="360" alt="Trailbound world map preview">
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="world">
+          <div class="world-layout">
+            <article class="map-board">
+              <img src="../assets/img/map-preview.svg" width="900" height="520" alt="Trailbound fantasy world map">
+              <div class="map-pin pin-one"><span>The First Road</span></div>
+              <div class="map-pin pin-two"><span>Ashwood Gate</span></div>
+              <div class="map-pin pin-three"><span>Broken Shrine</span></div>
+            </article>
+            <div class="region-list" data-region-list></div>
+          </div>
+        </section>
+
+        <section class="view" data-panel="quests">
+          <div class="list-grid" data-quest-list></div>
+        </section>
+
+        <section class="view" data-panel="inventory">
+          <div class="inventory-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <span>Chests</span>
+                <strong data-chest-count>0</strong>
+              </div>
+              <div class="list-stack" data-chest-list></div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading">
+                <span>Items</span>
+                <strong data-item-count>0</strong>
+              </div>
+              <div class="list-stack" data-item-list></div>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-panel="skills">
+          <div class="skill-board">
+            <div class="skill-summary">
+              <p class="eyebrow">Available points</p>
+              <strong data-skill-summary>0</strong>
+            </div>
+            <div class="skill-branches" data-skill-list></div>
+          </div>
+        </section>
+
+        <section class="view" data-panel="settings">
+          <div class="settings-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <span>Class</span>
+                <strong data-class-state>Wayfarer</strong>
+              </div>
+              <div class="class-grid" data-class-grid>
+                <button type="button" data-class="wayfarer">Wayfarer</button>
+                <button type="button" data-class="scout">Scout</button>
+                <button type="button" data-class="warden">Warden</button>
+                <button type="button" data-class="strider">Strider</button>
+                <button type="button" data-class="stormrunner">Stormrunner</button>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading">
+                <span>Strava</span>
+                <strong data-strava-state>Disconnected</strong>
+              </div>
+              <p>Route visibility defaults to private.</p>
+              <button class="command secondary" type="button" data-connect-strava-secondary>Connect Strava</button>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast" data-toast role="status" aria-live="polite"></div>
+    <script type="module" src="assets/js/app.js"></script>
+  </body>
+</html>

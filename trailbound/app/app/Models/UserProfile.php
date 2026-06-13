@@ -1,0 +1,40 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+#[Fillable(['user_id', 'display_name', 'home_area', 'starting_region_id', 'runner_type', 'weekly_goal_km', 'privacy_level', 'level', 'xp', 'total_km', 'total_runs', 'avatar_path', 'background_path', 'bio'])]
+class UserProfile extends Model
+{
+    public function getAvatarPathAttribute(?string $value): ?string
+    {
+        return $this->publicMediaPath($value);
+    }
+
+    public function getBackgroundPathAttribute(?string $value): ?string
+    {
+        return $this->publicMediaPath($value);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function startingRegion(): BelongsTo
+    {
+        return $this->belongsTo(Region::class, 'starting_region_id');
+    }
+
+    private function publicMediaPath(?string $path): ?string
+    {
+        if (! $path || str_starts_with($path, 'http') || str_starts_with($path, '/storage/')) {
+            return $path;
+        }
+
+        return '/storage/' . ltrim($path, '/');
+    }
+}

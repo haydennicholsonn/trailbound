@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">hayden monogram</title>
+  <desc id="desc">A circuit styled lowercase h monogram.</desc>
+  <defs>
+    <linearGradient id="edge" x1="18" y1="14" x2="112" y2="118" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="0.52" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#34d399"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="20" fill="#05070d"/>
+  <path d="M34 96V25h17v26c4-5 10-8 18-8 16 0 26 11 26 29v24H78V73c0-9-4-14-12-14-9 0-15 6-15 16v21H34Z" fill="#f8fafc"/>
+  <path d="M34 96V25h17v26c4-5 10-8 18-8 16 0 26 11 26 29v24H78V73c0-9-4-14-12-14-9 0-15 6-15 16v21H34Z" fill="none" stroke="url(#edge)" stroke-width="2" filter="url(#glow)"/>
+  <path d="M22 35h20M22 35V22M86 18v20M86 18h20M104 92H86M104 92v16M42 109V91M42 109H26" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round"/>
+  <path d="M96 31 28 99" stroke="#8b5cf6" stroke-width="4" stroke-linecap="round" opacity=".76"/>
+  <circle cx="22" cy="35" r="4" fill="#34d399"/>
+  <circle cx="106" cy="18" r="4" fill="#38bdf8"/>
+  <circle cx="104" cy="108" r="4" fill="#8b5cf6"/>
+</svg>

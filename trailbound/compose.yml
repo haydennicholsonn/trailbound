@@ -1,0 +1,109 @@
+name: trailbound
+
+services:
+  web:
+    image: caddy:2.10
+    restart: unless-stopped
+    depends_on:
+      - app
+      - realtime
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+      ACME_EMAIL: ${ACME_EMAIL:-hello@haydenn.co.za}
+
+  realtime:
+    build:
+      context: ./realtime
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - redis
+    environment:
+      REALTIME_PORT: 8080
+      REALTIME_CHANNEL: trailbound:realtime
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD_VALUE}
+
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PHP_CLI_SERVER_WORKERS: 4
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - app_storage:/var/www/html/storage
+    healthcheck:
+      test: ["CMD", "php", "artisan", "about"]
+      interval: 45s
+      timeout: 10s
+      retries: 3
+
+  worker:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: php artisan queue:work redis --sleep=2 --tries=3 --max-time=3600
+    volumes:
+      - app_storage:/var/www/html/storage
+
+  scheduler:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    command: sh -c "while true; do php artisan schedule:run --no-interaction; sleep 60; done"
+    volumes:
+      - app_storage:/var/www/html/storage
+
+  postgres:
+    image: postgis/postgis:18-3.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "work_mem=4MB", "-c", "maintenance_work_mem=64MB", "-c", "effective_cache_size=512MB"]
+
+  redis:
+    image: redis:8-alpine
+    restart: unless-stopped
+    command: sh -c 'redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD_VALUE}" --maxmemory 128mb --maxmemory-policy allkeys-lru'
+    environment:
+      REDIS_PASSWORD_VALUE: ${REDIS_PASSWORD_VALUE}
+    volumes:
+      - redis_data:/data
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  app_storage:

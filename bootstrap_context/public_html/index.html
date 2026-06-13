@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>hayden - dev who enjoys games and building cool things</title>
+    <meta name="description" content="Personal showcase for hayden - a developer building polished web experiences, game-inspired systems, and Project Trailbound.">
+    <meta property="og:title" content="hayden">
+    <meta property="og:description" content="dev who enjoys games and building cool things">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#05070d">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/main.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#hero">Skip to content</a>
+
+    <div class="site-backdrop" aria-hidden="true"></div>
+    <canvas id="cursor-trail" aria-hidden="true"></canvas>
+
+    <div id="boot-screen" class="boot-screen" aria-live="polite">
+      <div class="boot-card">
+        <div class="sentry-eye boot-eye" data-eye aria-hidden="true">
+          <svg viewBox="0 0 260 180" focusable="false">
+            <path class="eye-shell" d="M20 90C48 45 85 24 130 24s82 21 110 66c-28 45-65 66-110 66S48 135 20 90Z" />
+            <path class="eye-inner" d="M52 90c22-28 48-42 78-42s56 14 78 42c-22 28-48 42-78 42s-56-14-78-42Z" />
+            <g class="eye-look">
+              <circle class="eye-iris" cx="130" cy="90" r="33" />
+              <circle class="eye-pupil" cx="130" cy="90" r="14" />
+              <circle class="eye-spark" cx="119" cy="78" r="5" />
+            </g>
+            <path class="eye-rune eye-rune-left" d="M28 90h36M48 70v40" />
+            <path class="eye-rune eye-rune-right" d="M196 90h36M212 70v40" />
+            <rect class="eye-lid eye-lid-top" x="16" y="8" width="228" height="84" rx="42" />
+            <rect class="eye-lid eye-lid-bottom" x="16" y="88" width="228" height="84" rx="42" />
+          </svg>
+        </div>
+        <div class="boot-lines">
+          <p class="boot-line">&gt; booting haydenn.co.za</p>
+          <p class="boot-line">&gt; loading profile</p>
+          <p class="boot-line">&gt; compiling project dossier</p>
+          <p class="boot-line">&gt; entering showcase</p>
+        </div>
+        <button class="boot-skip" type="button">skip intro</button>
+      </div>
+    </div>
+
+    <header class="hud-header" aria-label="Site status">
+      <a class="brand-mark" href="#hero" aria-label="hayden home">
+        <img src="assets/img/logo.svg" width="34" height="34" alt="">
+        <span>hayden</span>
+      </a>
+      <div class="hud-status">
+        <span class="status-light" aria-hidden="true"></span>
+        <span>system online</span>
+      </div>
+      <div class="scene-readout" aria-live="polite">
+        <span>scene</span>
+        <strong data-active-scene>00_BOOT</strong>
+      </div>
+    </header>
+
+    <nav class="scene-rail" aria-label="Scene navigation">
+      <span class="rail-track" aria-hidden="true"><span class="rail-fill"></span></span>
+      <button class="rail-dot is-active" type="button" data-jump="#hero" data-scene-label="00_BOOT" aria-label="Boot scene"></button>
+      <button class="rail-dot" type="button" data-jump="#profile" data-scene-label="01_PROFILE" aria-label="Profile scene"></button>
+      <button class="rail-dot" type="button" data-jump="#skills" data-scene-label="02_SKILL_TREE" aria-label="Skills scene"></button>
+      <button class="rail-dot" type="button" data-jump="#project" data-scene-label="03_PROJECT_DOSSIER" aria-label="Project dossier scene"></button>
+      <button class="rail-dot" type="button" data-jump="#trailbound" data-scene-label="04_TRAILBOUND" aria-label="Trailbound scene"></button>
+      <button class="rail-dot" type="button" data-jump="#contact" data-scene-label="05_CONTACT" aria-label="Contact scene"></button>
+    </nav>
+
+    <main id="site-shell">
+      <section id="hero" class="scene hero-scene" data-scene="00_BOOT">
+        <div class="scene-inner hero-grid">
+          <div class="hero-copy">
+            <p class="scene-kicker reveal">00_BOOT / personal showcase</p>
+            <h1 class="reveal">hayden</h1>
+            <p class="hero-tagline reveal">dev who enjoys games and building cool things</p>
+            <p class="hero-lede reveal">
+              I build practical web systems, interactive experiences, and game-inspired tools.
+              Currently building a fantasy RPG running app that turns real-world runs into quests,
+              loot, XP, and progression.
+            </p>
+            <div class="hero-actions reveal">
+              <button class="button button-primary js-shatter" type="button" data-target="#profile">Enter the showcase</button>
+              <button class="button button-secondary js-shatter" type="button" data-target="#project">View the project</button>
+            </div>
+          </div>
+
+          <div class="hero-identity reveal" aria-label="Reactive hayden eye logo">
+            <div class="avatar-rig">
+              <span class="rig-ring ring-one" aria-hidden="true"></span>
+              <span class="rig-ring ring-two" aria-hidden="true"></span>
+              <div class="sentry-eye hero-eye" data-eye role="img" aria-label="Reactive hayden eye logo">
+                <svg viewBox="0 0 260 180" focusable="false" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="hero-eye-shell" x1="20" y1="24" x2="240" y2="156" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stop-color="#38bdf8" />
+                      <stop offset="0.48" stop-color="#8b5cf6" />
+                      <stop offset="1" stop-color="#34d399" />
+                    </linearGradient>
+                    <radialGradient id="hero-eye-iris" cx="50%" cy="50%" r="60%">
+                      <stop offset="0" stop-color="#f8fafc" />
+                      <stop offset="0.28" stop-color="#38bdf8" />
+                      <stop offset="0.72" stop-color="#8b5cf6" />
+                      <stop offset="1" stop-color="#05070d" />
+                    </radialGradient>
+                  </defs>
+                  <path class="eye-shell" d="M20 90C48 45 85 24 130 24s82 21 110 66c-28 45-65 66-110 66S48 135 20 90Z" />
+                  <path class="eye-inner" d="M52 90c22-28 48-42 78-42s56 14 78 42c-22 28-48 42-78 42s-56-14-78-42Z" />
+                  <g class="eye-look">
+                    <circle class="eye-iris" cx="130" cy="90" r="35" />
+                    <circle class="eye-pupil" cx="130" cy="90" r="14" />
+                    <circle class="eye-spark" cx="119" cy="78" r="5" />
+                  </g>
+                  <path class="eye-rune eye-rune-left" d="M28 90h36M48 70v40M66 58l-16 16" />
+                  <path class="eye-rune eye-rune-right" d="M196 90h36M212 70v40M194 122l16-16" />
+                  <path class="eye-circuit" d="M130 22V4M130 158v18M84 42 70 24M176 42l14-18M84 138l-14 18M176 138l14 18" />
+                  <rect class="eye-lid eye-lid-top" x="16" y="8" width="228" height="84" rx="42" />
+                  <rect class="eye-lid eye-lid-bottom" x="16" y="88" width="228" height="84" rx="42" />
+                </svg>
+                <span class="eye-scan" aria-hidden="true"></span>
+              </div>
+              <div class="avatar-hud">
+                <span>optic link</span>
+                <strong>tracking input</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="scroll-cue" aria-hidden="true">
+          <span></span>
+        </div>
+      </section>
+
+      <section id="profile" class="scene profile-scene" data-scene="01_PROFILE">
+        <div class="scene-inner two-column">
+          <div class="section-copy reveal">
+            <p class="scene-kicker">01_PROFILE / player card</p>
+            <h2>Player Profile</h2>
+            <p>
+              I like building things that feel good to use. Clean systems, useful dashboards,
+              smooth flows, and projects with enough polish to make them memorable.
+            </p>
+          </div>
+
+          <article class="hud-panel player-card reveal">
+            <div class="panel-heading">
+              <span>PLAYER PROFILE</span>
+              <strong>LVL 01</strong>
+            </div>
+            <dl class="profile-list">
+              <div>
+                <dt>Name</dt>
+                <dd>hayden</dd>
+              </div>
+              <div>
+                <dt>Class</dt>
+                <dd>Developer / Builder</dd>
+              </div>
+              <div>
+                <dt>Traits</dt>
+                <dd>Practical, curious, systems-minded, game-brained</dd>
+              </div>
+              <div>
+                <dt>Focus</dt>
+                <dd>Web apps, APIs, dashboards, tools, game-like experiences</dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+      </section>
+
+      <section id="skills" class="scene skills-scene" data-scene="02_SKILL_TREE">
+        <div class="scene-inner skills-layout">
+          <div class="section-copy reveal">
+            <p class="scene-kicker">02_SKILL_TREE / unlocked systems</p>
+            <h2>Skill Tree Unlocked</h2>
+            <p>
+              Backend logic, frontend flow, automation, integrations, and game-like product systems.
+              The useful stuff, tuned until it feels clean.
+            </p>
+          </div>
+
+          <div class="skill-tree reveal" aria-label="Skill tree visual">
+            <svg class="skill-lines" viewBox="0 0 720 520" role="img" aria-label="Connected skill branches">
+              <path d="M360 70 L250 185 L180 320" />
+              <path d="M360 70 L360 220 L360 365" />
+              <path d="M360 70 L480 185 L565 320" />
+              <path d="M250 185 L360 220 L480 185" />
+            </svg>
+            <div class="skill-node node-core">
+              <span>core</span>
+              <strong>Builder</strong>
+            </div>
+            <div class="skill-node node-backend">
+              <span>backend</span>
+              <strong>PHP / MySQL / APIs / Auth / Cron</strong>
+            </div>
+            <div class="skill-node node-frontend">
+              <span>frontend</span>
+              <strong>JavaScript / UI flows / Dashboards / Maps</strong>
+            </div>
+            <div class="skill-node node-systems">
+              <span>systems</span>
+              <strong>Data design / Reporting / Automation / Integrations</strong>
+            </div>
+            <div class="skill-node node-creative">
+              <span>creative</span>
+              <strong>Game systems / Progression / Interactive UI / Polish</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="project" class="scene project-scene" data-scene="03_PROJECT_DOSSIER">
+        <div class="scene-inner project-layout">
+          <div class="section-copy reveal">
+            <p class="scene-kicker">03_PROJECT_DOSSIER / featured build</p>
+            <h2>Project Trailbound</h2>
+            <p>
+              A fantasy RPG running app where your real runs unlock quests, XP, loot,
+              areas, gear, and character progression.
+            </p>
+            <p class="split-copy">
+              You run in the real world. Your character progresses in the game world.
+            </p>
+            <div class="project-actions">
+              <button class="button button-primary js-shatter" type="button" data-target="#trailbound">Open project dossier</button>
+              <a class="button button-secondary" href="app/">Launch app shell</a>
+            </div>
+          </div>
+
+          <article class="mission-card reveal">
+            <div class="mission-meta">
+              <span>MISSION SELECTED</span>
+              <strong>THE FIRST ROAD</strong>
+            </div>
+            <img class="mission-map" src="assets/img/map-preview.svg" width="640" height="420" alt="Stylized Trailbound fantasy map preview">
+            <div class="mission-stats" aria-label="Project systems">
+              <span>Strava-first import</span>
+              <span>PHP/MySQL backend</span>
+              <span>Quests and rewards</span>
+              <span>Map unlocks</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="trailbound" class="scene trailbound-scene" data-scene="04_TRAILBOUND">
+        <div class="scene-inner trailbound-layout">
+          <div class="section-copy reveal">
+            <p class="scene-kicker">04_TRAILBOUND / game loop</p>
+            <h2>Make Running Feel Like Progression</h2>
+            <p>
+              Complete a 3km run and unlock a forest path. Hit a weekly streak and open a reward chest.
+              Explore a new route and reveal part of the world map.
+            </p>
+          </div>
+
+          <div class="loop-strip reveal" aria-label="Trailbound loop">
+            <div><span>01</span><strong>Run</strong></div>
+            <div><span>02</span><strong>Sync</strong></div>
+            <div><span>03</span><strong>Rewards</strong></div>
+            <div><span>04</span><strong>Unlock</strong></div>
+            <div><span>05</span><strong>Next Quest</strong></div>
+          </div>
+
+          <div class="map-unlock reveal" aria-label="Area discovered preview">
+            <img src="assets/img/map-preview.svg" width="900" height="520" alt="Foggy fantasy map area">
+            <div class="map-fog" aria-hidden="true"></div>
+            <div class="area-discovered">
+              <span>AREA DISCOVERED</span>
+              <strong>The First Road</strong>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="contact" class="scene contact-scene" data-scene="05_CONTACT">
+        <div class="scene-inner contact-layout">
+          <div class="section-copy reveal">
+            <p class="scene-kicker">05_CONTACT / continue</p>
+            <h2>This is my little corner of the internet.</h2>
+            <p>
+              A place for experiments, polished ideas, and things that probably started with
+              "what if this was more game-like?"
+            </p>
+            <div class="contact-actions">
+              <a class="button button-secondary" href="mailto:hello@haydenn.co.za">Contact</a>
+              <button class="button button-primary js-restart" type="button">Restart sequence</button>
+            </div>
+          </div>
+          <div class="final-sigil reveal" aria-hidden="true">
+            <img src="assets/img/logo.svg" width="220" height="220" alt="">
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="assets/js/main.js"></script>
+  </body>
+</html>

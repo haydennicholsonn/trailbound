@@ -1,0 +1,9 @@
+{
+  "name": "trailbound-realtime",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ioredis": "^5.8.2",
+    "ws": "^8.18.3"
+  }
+}

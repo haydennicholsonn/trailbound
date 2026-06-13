@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 420" role="img" aria-labelledby="title desc">
+  <title id="title">Abstract developer avatar</title>
+  <desc id="desc">A hooded fantasy developer silhouette with a glowing visor and circuit details.</desc>
+  <defs>
+    <linearGradient id="hood" x1="78" y1="58" x2="342" y2="374" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#172033"/>
+      <stop offset=".55" stop-color="#080d18"/>
+      <stop offset="1" stop-color="#05070d"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="133" y1="190" x2="286" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset=".5" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <filter id="softGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <clipPath id="visorClip">
+      <path d="M109 206c13-70 46-114 100-132 56 18 90 62 102 132-14 51-47 78-101 82-54-4-88-31-101-82Z"/>
+    </clipPath>
+  </defs>
+  <rect width="420" height="420" fill="none"/>
+  <path d="M63 354c20-70 42-130 64-180 22-51 49-88 82-112 34 24 62 61 84 112 23 50 45 110 64 180-47 31-96 47-147 47-52 0-101-16-147-47Z" fill="url(#hood)"/>
+  <path d="M101 216c11-74 48-127 108-159 62 32 99 85 111 159-18 58-55 91-111 98-55-7-92-40-108-98Z" fill="#05070d" stroke="#273854" stroke-width="3"/>
+  <path d="M126 210c10-57 37-94 83-112 48 18 77 55 86 112-11 38-40 59-86 63-45-4-73-25-83-63Z" fill="#0b1020" clip-path="url(#visorClip)"/>
+  <path d="M137 188c30-12 64-12 101-1 18 5 34 12 48 22-13 8-34 13-63 16-37 3-68-3-93-17 1-8 4-15 7-20Z" fill="url(#visor)" filter="url(#softGlow)"/>
+  <path d="M121 273c25 33 55 50 88 50 35 0 66-17 92-50" fill="none" stroke="#26364f" stroke-width="4" stroke-linecap="round"/>
+  <path d="M135 303h53l21 25 22-25h52" fill="none" stroke="#38bdf8" stroke-width="3" stroke-linecap="round" opacity=".86"/>
+  <path d="M116 238H73M303 238h44M166 337v38M254 337v38M210 328v58" fill="none" stroke="#8b5cf6" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <circle cx="73" cy="238" r="5" fill="#34d399"/>
+  <circle cx="347" cy="238" r="5" fill="#38bdf8"/>
+  <circle cx="210" cy="386" r="5" fill="#8b5cf6"/>
+  <path d="M90 355c35 17 75 25 120 25 45 0 85-8 120-25" fill="none" stroke="#f8fafc" stroke-width="2" opacity=".18"/>
+</svg>
