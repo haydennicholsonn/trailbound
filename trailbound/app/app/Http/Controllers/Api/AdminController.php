@@ -42,6 +42,7 @@ class AdminController extends Controller
             'shop_items' => ShopItem::query()->where('is_active', true)->count(),
             'packages' => Package::query()->count(),
             'active_challenges' => Challenge::query()->where('status', 'active')->count(),
+            'referrals' => DB::table('user_profiles')->whereNotNull('referred_by_user_id')->count(),
         ];
 
         $players = User::query()
@@ -60,6 +61,9 @@ class AdminController extends Controller
                 'total_km' => (float) ($player->profile?->total_km ?? 0),
                 'total_runs' => $player->run_activities_count,
                 'friends' => $player->friends_count,
+                'friend_code' => $player->profile?->friend_code,
+                'tears' => $player->profile?->tears ?? 0,
+                'package_id' => $player->profile?->package_id,
                 'joined_at' => $player->created_at,
             ]);
 

@@ -25,6 +25,7 @@ Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout']);
 Route::get('/auth/me', [AuthController::class, 'me']);
+Route::post('/auth/detect-shard', [AuthController::class, 'detectShard']);
 Route::patch('/profile', [AuthController::class, 'updateProfile']);
 Route::post('/profile/avatar', [AuthController::class, 'uploadAvatar']);
 Route::post('/profile/background', [AuthController::class, 'uploadBackground']);
@@ -33,7 +34,8 @@ Route::get('/world', [WorldController::class, 'show']);
 Route::post('/runs', [WorldController::class, 'storeRun']);
 Route::get('/runs/{runId}', [WorldController::class, 'showRun']);
 Route::post('/runs/{runId}/images', [WorldController::class, 'uploadImages']);
-Route::get('/auth/google', [AuthController::class, 'googleStatus']);
+Route::get('/auth/google', [AuthController::class, 'googleRedirect']);
+Route::get('/auth/google/callback', [AuthController::class, 'googleCallback']);
 
 Route::get('/strava/connect', [StravaController::class, 'connect']);
 Route::post('/strava/callback', [StravaController::class, 'callback']);

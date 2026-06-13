@@ -42,6 +42,12 @@ return [
         'redirect_uri' => env('STRAVA_REDIRECT_URI'),
     ],
 
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_REDIRECT_URI', env('APP_URL') . '/api/auth/google/callback'),
+    ],
+
     'openfreemap' => [
         'style_url' => env('OPENFREEMAP_STYLE_URL', 'https://tiles.openfreemap.org/styles/liberty'),
     ],

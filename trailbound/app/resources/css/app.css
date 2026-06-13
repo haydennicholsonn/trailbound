@@ -107,6 +107,28 @@ textarea{padding:10px 12px;min-height:80px;resize:vertical}
 select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2364748b' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
 form,.form{display:grid;gap:12px}
 .split{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.passwordWrap{position:relative;display:grid}
+.passwordWrap input{padding-right:48px}
+.passwordWrap button{position:absolute;right:6px;top:6px;width:32px;height:30px;border:0;border-radius:var(--radius-sm);background:transparent;color:var(--muted);display:grid;place-items:center}
+.passwordWrap button:hover{background:var(--accent-soft);color:var(--accent)}
+.goodHint{color:var(--success)}
+.geoCard{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:rgba(244,239,231,.035)}
+.geoCard>div{display:flex;align-items:center;gap:9px;font-family:var(--font-display);font-weight:750}
+.geoCard p{margin:0;color:var(--muted);font-size:.84rem;line-height:1.45}
+.geoCard.success{border-color:rgba(125,211,168,.34);background:rgba(125,211,168,.08)}
+.geoCard.error{border-color:rgba(240,111,130,.34);background:rgba(240,111,130,.08)}
+.geoCard.loading{border-color:var(--accent-muted);background:var(--accent-soft)}
+.classPick{display:grid;gap:8px}
+.miniHead{display:flex;align-items:center;justify-content:space-between;color:var(--muted-soft);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em}
+.miniHead strong{color:var(--accent);font-family:var(--font-display)}
+.classCard{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;text-align:left;align-items:start;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.03);transition:all var(--transition)}
+.classCard svg{color:var(--accent);margin-top:2px}
+.classCard strong,.classCard small,.classCard em{display:block}
+.classCard strong{font-family:var(--font-display)}
+.classCard small{color:var(--muted);font-size:.78rem}
+.classCard em{color:var(--muted-soft);font-style:normal;font-size:.72rem;margin-top:3px}
+.classCard:hover,.classCard.selected{border-color:var(--accent-muted);background:var(--accent-soft);transform:translateY(-1px)}
+.classCard.selected{box-shadow:inset 3px 0 0 var(--accent)}
 
 /* ── Shell ── */
 .shell{position:relative;z-index:2;display:grid;grid-template-columns:260px 1fr;min-height:100vh;max-width:1480px;margin:0 auto}
@@ -463,6 +485,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .mobileEyeToggle .eye{width:50px}
 .mobileEyeToggle.open{transform:rotate(90deg) scale(.94);border-color:rgba(251,49,95,.45);background:linear-gradient(145deg,rgba(30,8,20,.96),rgba(251,49,95,.34))}
 .mobileEyeToggle:not(.open)::after{content:"";position:absolute;inset:-7px;border-radius:26px;border:1px solid rgba(56,189,248,.38);animation:pulseRing 2.2s infinite;pointer-events:none}
+.mobileEyeToggle.left{left:18px;right:auto}
+.mobileEyeToggle.right{right:18px;left:auto}
 .mobileNavScrim{position:fixed;inset:0;z-index:58;border:0;background:rgba(2,6,17,.54);backdrop-filter:blur(8px);animation:fadeIn .18s ease-out}
 [data-theme="light"] .mobileEyeToggle{background:linear-gradient(145deg,rgba(255,255,255,.94),rgba(0,122,255,.18));box-shadow:0 22px 58px rgba(15,23,42,.22),inset 0 1px 0 rgba(255,255,255,.85)}
 
@@ -486,6 +510,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .authScreen{grid-template-columns:1fr;padding:20px}
   .authHero{grid-template-columns:1fr}
   .mobileEyeToggle{display:grid}
+  .mobileEyeToggle.left{left:18px;right:auto}
+  .mobileEyeToggle.right{right:18px;left:auto}
   .mobileNavScrim{display:block}
   .statusBar{grid-template-columns:16px 1fr;gap:6px}
   .statusBar select,.statusBar .primary{grid-column:span 2}
@@ -515,12 +541,15 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .sidebar{left:8px;right:8px;bottom:88px;border-radius:20px;padding:14px}
   .sidebar nav{grid-template-columns:1fr}
   .mobileEyeToggle{right:14px;bottom:14px;width:60px;height:60px;border-radius:20px}
+  .mobileEyeToggle.left{left:14px;right:auto}
+  .mobileEyeToggle.right{right:14px;left:auto}
   .mobileEyeToggle .eye{width:46px}
   .topDock{top:10px;right:10px}
   .content{padding:12px 12px 112px}
   .panel{padding:14px}
   .runStatsGrid,.questDetailGrid{grid-template-columns:1fr}
   .chatComposer,.messageStart{grid-template-columns:1fr}
+  .helpGrid,.progressChecklist{grid-template-columns:1fr}
   .chatBubble{max-width:94%}
   .chartBars{height:140px}
 }
@@ -1448,6 +1477,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .tearsIcon{color:var(--accent-secondary);filter:drop-shadow(0 0 4px rgba(125,211,168,.5))}
 .walletCompact{display:inline-flex;align-items:center;gap:4px;font-weight:700;font-size:.85rem;color:var(--accent-secondary)}
 .walletBadge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:rgba(125,211,168,.1);border:1px solid rgba(125,211,168,.25);color:var(--accent-secondary);font-weight:800;font-size:.82rem}
+
+/* ─── Progress, Help, Tutorial ─── */
+.progressPage,.helpPage{display:grid;gap:16px}
+.nextObjective{display:grid;grid-template-columns:46px minmax(0,1fr);gap:14px;align-items:start}
+.nextObjective>svg{width:46px;height:46px;padding:10px;border-radius:var(--radius);background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-muted)}
+.nextObjective p{margin:0 0 12px;color:var(--muted)}
+.questProgress.large{height:14px;border-radius:999px;background:rgba(244,239,231,.08);overflow:hidden}
+.questProgress.large i{display:block;height:100%;background:var(--accent-gradient);border-radius:inherit}
+.progressChecklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.progressChecklist div{display:flex;align-items:center;gap:8px;padding:11px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);background:rgba(244,239,231,.03)}
+.progressChecklist div.done{border-color:rgba(125,211,168,.28);color:var(--text);background:rgba(125,211,168,.08)}
+.progressChecklist div.done svg{color:var(--success)}
+.helpGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.helpTopic{border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg,rgba(244,239,231,.045),rgba(244,239,231,.018)),var(--panel);padding:16px}
+.helpTopic strong{font-family:var(--font-display);font-size:1rem}
+.helpTopic p{margin:8px 0 0;color:var(--muted);font-size:.88rem;line-height:1.55}
+.tutorialModal{text-align:center;max-width:560px}
+.tutorialModal .eye{margin:0 auto;width:min(180px,52vw)}
+.tutorialDots{display:flex;justify-content:center;gap:6px}
+.tutorialDots i{width:8px;height:8px;border-radius:999px;background:var(--border-strong)}
+.tutorialDots i.active{width:24px;background:var(--accent-gradient)}
 
 /* ─── Social layout ─── */
 .socialLayout{display:grid;gap:14px}

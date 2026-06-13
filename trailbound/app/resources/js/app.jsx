@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, ActivitySquare, BarChart3, Bell, Cable, Camera, Compass, Crosshair, Droplet, Eye as EyeIcon, EyeOff, Gauge, Gem, Globe, Lock, LogOut, Map, MapPin, MessageCircle, Moon, MoreVertical, Package as PackageIcon, RadioTower, Search, Shield, ShoppingBag, Smile, Sparkles, SquarePlus, Star, Sun, Sword, Timer, Trophy, UserCheck, UserPlus, UserRound, Users, X, Zap } from 'lucide-react';
+import { Activity, ActivitySquare, BarChart3, Bell, BookOpen, Cable, Camera, CheckCircle2, Compass, Copy, Crosshair, Droplet, Eye as EyeIcon, EyeOff, Gauge, Gem, Globe, Lock, LogOut, Map, MapPin, MessageCircle, Moon, MoreVertical, Navigation, Package as PackageIcon, RadioTower, Search, Share2, Shield, ShoppingBag, Smile, Sparkles, SquarePlus, Star, Sun, Sword, Timer, Trophy, UserCheck, UserPlus, UserRound, Users, X, Zap } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../css/app.css';
 
-const nav = [['Dashboard', Gauge], ['Cape Town', Map], ['Tasks', Compass], ['Runs', Activity], ['Social', ActivitySquare], ['Messages', MessageCircle], ['Shop', ShoppingBag], ['Inventory', Gem], ['Skill Tree', Sword], ['Challenges', Trophy], ['Profile', UserRound], ['Settings', Shield]];
+const nav = [['Dashboard', Gauge], ['Cape Town', Map], ['Progress', BarChart3], ['Tasks', Compass], ['Runs', Activity], ['Social', ActivitySquare], ['Messages', MessageCircle], ['Shop', ShoppingBag], ['Inventory', Gem], ['Skill Tree', Sword], ['Challenges', Trophy], ['Help', BookOpen], ['Profile', UserRound], ['Settings', Shield]];
 const palettes = [
   { id: 'trailbound', label: 'Trailbound', swatch: ['#d9a566', '#7dd3a8'] },
   { id: 'blue', label: 'Blue', swatch: ['#60a5fa', '#67e8f9'] },
@@ -14,6 +14,13 @@ const palettes = [
   { id: 'rainbow', label: 'Rainbow', swatch: ['#60a5fa', '#f472b6', '#facc15'] },
   { id: 'pink', label: 'Pink', swatch: ['#f472b6', '#f9a8d4'] },
   { id: 'purple', label: 'Purple', swatch: ['#a78bfa', '#60a5fa'] },
+];
+const runnerClasses = [
+  { id: 'Pathfinder', icon: Compass, title: 'Pathfinder', copy: 'Balanced exploration and questing.', play: 'Best first class if you want the whole Trailbound loop.', strengths: ['Map discovery', 'Quest tempo', 'Flexible growth'], start: 'Centre of the skill tree' },
+  { id: 'Sprinter', icon: Zap, title: 'Sprinter', copy: 'Speed-focused progression.', play: 'For short, sharp efforts and pace-driven goals.', strengths: ['Pace rewards', 'Fast dailies', 'Burst challenges'], start: 'Speed branch' },
+  { id: 'Endurer', icon: Timer, title: 'Endurer', copy: 'Distance and consistency focused.', play: 'For steady mileage, streaks, and long-form progress.', strengths: ['Weekly goals', 'Streaks', 'Distance quests'], start: 'Endurance branch' },
+  { id: 'Wanderer', icon: Map, title: 'Wanderer', copy: 'Exploration and discovery focused.', play: 'For runners who want to reveal every shard.', strengths: ['Region unlocks', 'Route variety', 'Discovery XP'], start: 'Exploration branch' },
+  { id: 'Strategist', icon: Sword, title: 'Strategist', copy: 'Challenge and reward optimization.', play: 'For players who want efficient XP, Tears, and quests.', strengths: ['Rewards', 'Challenges', 'Skill planning'], start: 'Tactics branch' },
 ];
 
 async function api(path, options = {}) {
@@ -137,21 +144,101 @@ function BrandLogo({ compact = false }) {
 
 function AuthGate({ onAuthed }) {
   const [mode, setMode] = useState('register');
-  const [form, setForm] = useState({ name: '', email: '', password: '', home_area: 'City Bowl', runner_type: 'Balanced', weekly_goal_km: 15 });
+  const [form, setForm] = useState({ name: '', email: '', password: '', runner_type: 'Pathfinder', weekly_goal_km: 15, referral_code: '', lat: null, lng: null, accuracy_m: null });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [geoState, setGeoState] = useState({ status: 'idle', message: 'Trailbound starts you where you actually are. Your starting shard is based on your current location.', region: null });
   useEffect(() => { if (!error) return; const id = setTimeout(() => setError(''), 5200); return () => clearTimeout(id); }, [error]);
-  const submit = async (e) => { e.preventDefault(); setError(''); setLoading(true); try { const payload = mode === 'register' ? form : { email: form.email, password: form.password }; const d = await api(`/api/auth/${mode}`, { method: 'POST', body: payload }); onAuthed(d.user); } catch (err) { setError(err.message); } finally { setLoading(false); } };
+  const passwordHint = useMemo(() => {
+    if (!form.password || mode !== 'register') return '';
+    if (form.password.length < 10) return `Add ${10 - form.password.length} more character${10 - form.password.length === 1 ? '' : 's'} to your password.`;
+    if (!/[a-z]/i.test(form.password)) return 'Password needs at least one letter.';
+    if (!/\d/.test(form.password)) return 'Password needs at least one number.';
+    return 'Password looks ready.';
+  }, [form.password, mode]);
+  const detectShard = () => {
+    setError('');
+    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      setGeoState({ status: 'error', message: 'Location needs HTTPS. Open Trailbound on the secure domain and try again.', region: null });
+      return;
+    }
+    if (!navigator.geolocation) {
+      setGeoState({ status: 'error', message: 'This browser does not support location access.', region: null });
+      return;
+    }
+    setGeoState({ status: 'loading', message: 'Asking your browser for your current location...', region: null });
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const coords = {
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        accuracy_m: Math.round(pos.coords.accuracy || 0),
+      };
+      setForm(current => ({ ...current, ...coords }));
+      try {
+        const d = await api('/api/auth/detect-shard', { method: 'POST', body: coords });
+        setGeoState({ status: d.region ? 'success' : 'error', message: d.message, region: d.region });
+      } catch (err) {
+        setGeoState({ status: 'error', message: err.message, region: null });
+      }
+    }, (err) => {
+      const message = err.code === err.PERMISSION_DENIED
+        ? 'Location permission was blocked. Enable location for this site, then retry.'
+        : err.code === err.TIMEOUT
+          ? 'Location timed out. Try again somewhere with a clearer GPS signal.'
+          : 'Location was unavailable. Please retry.';
+      setGeoState({ status: 'error', message, region: null });
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 18000 });
+  };
+  const submit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (mode === 'register' && !geoState.region) {
+      setError('Detect your starting shard before creating your account.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const payload = mode === 'register' ? form : { email: form.email, password: form.password };
+      const d = await api(`/api/auth/${mode}`, { method: 'POST', body: payload });
+      onAuthed(d.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <main className="authScreen">
-      <section className="authHero"><div><p className="kicker">Cape Town alpha</p><h1>Trailbound</h1><p>Turn your real runs into map control, biome tasks, XP, profile progression, and region unlocks.</p><div className="authProof"><span>Region play</span><span>Live friends</span><span>Quest routes</span></div></div><Eye /></section>
+      <section className="authHero"><div><p className="kicker">Cape Town alpha</p><h1>Trailbound</h1><p>Have your real life runs turn into quests, XP and exploration. Pick your runner class, start from your real shard, and reveal Cape Town one run at a time.</p><div className="authProof"><span>Real shards</span><span>XP and Tears</span><span>Social quests</span></div></div><Eye /></section>
       <form className="authPanel" onSubmit={submit}>
         <div className="tabs"><button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Register</button><button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Login</button></div>
-        {mode === 'register' && <><label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></label><label>Home area<input value={form.home_area} onChange={e => setForm({ ...form, home_area: e.target.value })} required placeholder="Sea Point, Gardens, Muizenberg..." /></label><div className="split"><label>Runner type<select value={form.runner_type} onChange={e => setForm({ ...form, runner_type: e.target.value })}><option>Balanced</option><option>Explorer</option><option>Tempo</option><option>Endurance</option></select></label><label>Weekly goal km<input type="number" min="1" max="250" value={form.weekly_goal_km} onChange={e => setForm({ ...form, weekly_goal_km: Number(e.target.value) })} /></label></div></>}
-        <label>Email<input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required /></label><label>Password<input type="password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /></label>
+        {mode === 'register' && <>
+          <label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></label>
+          <div className={`geoCard ${geoState.status}`}>
+            <div><Navigation size={18} /><strong>{geoState.region ? geoState.region.name : 'Detect starting shard'}</strong></div>
+            <p>{geoState.region ? `${geoState.region.biome} · ${geoState.region.difficulty}. ${geoState.region.summary}` : geoState.message}</p>
+            <button type="button" className={geoState.status === 'success' ? 'ghost' : 'primary'} onClick={detectShard} disabled={geoState.status === 'loading'}>
+              <MapPin size={15} />{geoState.status === 'loading' ? 'Locating...' : geoState.region ? 'Retry location' : 'Use my location'}
+            </button>
+          </div>
+          <div className="classPick">
+            <div className="miniHead"><span>Runner class</span><strong>{form.runner_type}</strong></div>
+            {runnerClasses.map(c => {
+              const Icon = c.icon;
+              return <button key={c.id} type="button" className={`classCard${form.runner_type === c.id ? ' selected' : ''}`} onClick={() => setForm({ ...form, runner_type: c.id })}>
+                <Icon size={18} />
+                <span><strong>{c.title}</strong><small>{c.copy}</small><em>{c.start}</em></span>
+              </button>;
+            })}
+          </div>
+          <div className="split"><label>Weekly goal km<input type="number" min="1" max="250" value={form.weekly_goal_km} onChange={e => setForm({ ...form, weekly_goal_km: Number(e.target.value) })} /></label><label>Referral code <small>Optional friend code or username</small><input value={form.referral_code} onChange={e => setForm({ ...form, referral_code: e.target.value })} placeholder="HAYDEN-123AB" /></label></div>
+        </>}
+        <label>Email<input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required /></label>
+        <label>Password<div className="passwordWrap"><input type={showPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /><button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <EyeIcon size={17} />}</button></div>{passwordHint && <small className={passwordHint.includes('ready') ? 'goodHint' : ''}>{passwordHint}</small>}</label>
         {error && <p className="error">{error}</p>}
         <button className="primary" disabled={loading}>{loading ? 'Working...' : mode === 'register' ? 'Create account' : 'Sign in'}</button>
-        <button type="button" className="ghost" onClick={() => setError('Google sign-in requires OAuth credentials.')}>Sign in with Google</button>
+        <button type="button" className="ghost" onClick={() => { window.location.href = '/api/auth/google'; }}>Sign in with Google</button>
       </form>
     </main>
   );
@@ -1255,6 +1342,101 @@ function PackageInfoPanel({ user }) {
   );
 }
 
+function FriendCodeCard({ user, onMessage }) {
+  const code = user.profile?.friend_code || 'Generating...';
+  const shareText = `Add me on Trailbound with friend code ${code} #trailboundapp`;
+  const copy = async () => {
+    await navigator.clipboard?.writeText(code);
+    onMessage?.('Friend code copied.');
+  };
+  const share = async () => {
+    if (navigator.share) {
+      await navigator.share({ title: 'Trailbound friend code', text: shareText });
+    } else {
+      await navigator.clipboard?.writeText(shareText);
+      onMessage?.('Share text copied.');
+    }
+  };
+  return <Panel eyebrow="Friend code" title={code}>
+    <p className="muted">Use this for friend requests and signup referrals. It is unique to you.</p>
+    <div className="actions"><button className="primary" onClick={copy}><Copy size={15} />Copy code</button><button className="ghost" onClick={share}><Share2 size={15} />Share</button></div>
+  </Panel>;
+}
+
+function ProgressPanel({ user, world, tasks, onNavigate }) {
+  const unlocked = world.regions.filter(r => r.status !== 'locked');
+  const completeTasks = tasks.filter(t => t.status === 'complete').length;
+  const weeklyGoal = Number(user.profile?.weekly_goal_km || 15);
+  const weeklyProgress = Math.min(100, weeklyGoal ? ((Number(user.stats?.total_km || 0) % weeklyGoal) / weeklyGoal) * 100 : 0);
+  const nextTask = tasks.find(t => t.status === 'available' || t.status === 'in_progress') || tasks.find(t => t.status !== 'locked');
+  const xpProgress = Math.min(100, ((Number(user.stats?.xp || 0) % 500) / 500) * 100);
+  return <div className="progressPage">
+    <Panel eyebrow="Next objective" title={nextTask ? nextTask.title : 'Log your first run'}>
+      <div className="nextObjective">
+        <Compass size={28} />
+        <div><p>{nextTask ? `${nextTask.region} · ${nextTask.unlock_rule}` : 'Use your location, log a run, and Trailbound will start revealing your shard.'}</p><button className="primary" onClick={() => onNavigate(nextTask ? 'Tasks' : 'Runs')}>{nextTask ? 'Open quest board' : 'Log a run'}</button></div>
+      </div>
+    </Panel>
+    <div className="runsSummary">
+      <PremiumStatCard icon={Star} value={`Lvl ${user.stats?.level || 1}`} label="Level progress" context={`${Number(user.stats?.xp || 0) % 500} / 500 XP`} progress={xpProgress} />
+      <PremiumStatCard icon={Compass} value={`${completeTasks}/${tasks.length}`} label="Quest progress" context={nextTask ? `Next: ${nextTask.title}` : 'Quest chain clear'} progress={tasks.length ? (completeTasks / tasks.length) * 100 : 0} />
+      <PremiumStatCard icon={Map} value={`${unlocked.length}/${world.regions.length}`} label="Map unlocks" context="Cape Town shard revealed" progress={world.regions.length ? (unlocked.length / world.regions.length) * 100 : 0} />
+      <PremiumStatCard icon={Droplet} value={user.stats?.tears || 0} label="Tears balance" context="Spend in shop or skill tree" progress={Math.min(100, Number(user.stats?.tears || 0))} />
+    </div>
+    <Panel eyebrow="Weekly momentum" title={`${weeklyGoal} km goal`}>
+      <div className="questProgress large"><i style={{ width: `${weeklyProgress}%` }} /></div>
+      <p className="muted">{weeklyProgress.toFixed(0)}% of your rolling weekly goal signal. Connect Strava or log runs to keep this moving.</p>
+    </Panel>
+    <Panel eyebrow="Build path" title={user.profile?.runner_type || 'Pathfinder'}>
+      <div className="progressChecklist">
+        {['Detect your current shard', 'Log or sync a run', 'Complete a quest', 'Earn Tears', 'Share an achievement', 'Challenge a friend'].map((item, i) => <div key={item} className={i < Math.min(2, user.stats?.runs || 0) + 1 ? 'done' : ''}><CheckCircle2 size={16} /><span>{item}</span></div>)}
+      </div>
+    </Panel>
+  </div>;
+}
+
+function HelpPanel({ onReplayTutorial }) {
+  const topics = [
+    ['Runs', 'Runs generate XP, Tears, quest progress, social posts, and map unlocks.'],
+    ['Shards', 'Cape Town is divided into real-world regions with game names, biomes, quests, and fog-of-war.'],
+    ['Tears', 'Tears are the Trailbound reward currency used for items, shop purchases, and future skill unlocks.'],
+    ['Quests', 'Quests are region objectives unlocked by location, distance, consistency, and task chains.'],
+    ['Classes', 'Runner classes set your identity and future skill-tree direction.'],
+    ['Social', 'The Social tab combines your feed, friends, reactions, comments, challenges, and bragging moments.'],
+    ['Friend codes', 'Friend codes let people add you and can credit referrals during signup.'],
+    ['Packages', 'Free is active now. Paid packages are admin-managed and future-ready for payment integration.'],
+  ];
+  return <div className="helpPage">
+    <Panel eyebrow="Trailbound Bible" title="How the world opens">
+      <p className="muted">Trailbound turns real movement into a living progression game. Run outside, reveal territory, complete quests, earn Tears, and bring friends into the same map.</p>
+      <button className="primary" onClick={onReplayTutorial}><Sparkles size={15} />Replay welcome tour</button>
+    </Panel>
+    <div className="helpGrid">{topics.map(([title, body]) => <article key={title} className="helpTopic"><strong>{title}</strong><p>{body}</p></article>)}</div>
+  </div>;
+}
+
+function TutorialModal({ onClose }) {
+  const steps = [
+    ['Welcome to Trailbound', 'Your real-world runs become quests, XP, Tears, social moments, and exploration.'],
+    ['Start where you are', 'Your first shard is based on your physical location. Cape Town opens as you move through it.'],
+    ['Choose your class', 'Your runner type shapes your identity and future skill-tree path.'],
+    ['Know what to do next', 'Progress shows level, quests, weekly goals, map unlocks, Tears, and your next objective.'],
+  ];
+  const [step, setStep] = useState(0);
+  const done = step >= steps.length - 1;
+  return <div className="modalBackdrop" onClick={onClose}>
+    <div className="modalContent tutorialModal" onClick={e => e.stopPropagation()}>
+      <button className="modalClose" onClick={onClose}><X size={20} /></button>
+      <span className="kicker">Orrin guide</span>
+      <Eye phrase="Let's open the shard properly." />
+      <h2>{steps[step][0]}</h2>
+      <p className="muted">{steps[step][1]}</p>
+      <div className="tutorialDots">{steps.map((_, i) => <i key={i} className={i === step ? 'active' : ''} />)}</div>
+      <div className="actions"><button className="ghost" onClick={onClose}>Skip</button><button className="primary" onClick={() => done ? onClose() : setStep(s => s + 1)}>{done ? 'Enter Trailbound' : 'Next'}</button></div>
+    </div>
+  </div>;
+}
+
 function BadgeGallery({ refreshKey }) {
   const [badges, setBadges] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1362,6 +1544,10 @@ function AdminPanel() {
           <strong>{stats.totals.active_challenges ?? 0}</strong>
           <span>Active challenges</span>
         </div>
+        <div className="adminEconStat">
+          <strong>{stats.totals.referrals ?? 0}</strong>
+          <span>Referral links</span>
+        </div>
       </div>
     </Panel>
     <Panel eyebrow="Players" title="Latest runners">
@@ -1369,6 +1555,8 @@ function AdminPanel() {
         <span className="rowAvatar">{(player.display_name || player.name || '?')[0].toUpperCase()}</span>
         <span><strong>{player.display_name || player.name}</strong><small>{player.email}</small></span>
         <Chip>Lvl {player.level}</Chip>
+        <small>{player.friend_code || 'No code'}</small>
+        <small><Droplet size={11} /> {player.tears || 0}</small>
         <small>{player.total_km} km</small>
         <small>{player.total_runs} runs</small>
       </div>)}</div>
@@ -1413,7 +1601,7 @@ function AdminPanel() {
 function AppShell({ initialUser }) {
   const canvasRef = useRef(null);
   const [user, setUser] = useState(initialUser);
-  const [active, setActive] = useState('Dashboard');
+  const [active, setActive] = useState(() => localStorage.getItem('trailbound-active-tab') || 'Dashboard');
   const [world, setWorld] = useState({ regions: [], recent_runs: [] });
   const [run, setRun] = useState({ distance_km: 3, duration_minutes: 24, region_id: '' });
   const [message, setMessage] = useState('');
@@ -1443,6 +1631,8 @@ function AppShell({ initialUser }) {
   const [runLogOpen, setRunLogOpen] = useState(false);
   const [eyePhrase, setEyePhrase] = useState('Watching the shard with you.');
   const [tearsBalance, setTearsBalance] = useState(initialUser?.stats?.tears || 0);
+  const [showTutorial, setShowTutorial] = useState(!initialUser?.profile?.tutorial_completed_at);
+  const [mobileMenuSide, setMobileMenuSide] = useState(initialUser?.profile?.mobile_menu_side || 'right');
   const lastUnreadRef = useRef(0);
   const fileInputRef = useRef(null);
   const lastDiscoveryRef = useRef(null);
@@ -1458,6 +1648,14 @@ function AppShell({ initialUser }) {
     const id = setTimeout(() => setEyePhrase(''), 5200);
     return () => clearTimeout(id);
   }, [eyePhrase]);
+
+  useEffect(() => {
+    if (shellNav.some(([label]) => label === active)) {
+      localStorage.setItem('trailbound-active-tab', active);
+    } else {
+      setActive('Dashboard');
+    }
+  }, [active, shellNav]);
 
   const refreshWorld = useCallback(async () => {
     const d = await api('/api/world');
@@ -1649,6 +1847,40 @@ function AppShell({ initialUser }) {
 
   const logRun = async (e) => { e.preventDefault(); setMessage(''); const d = await api('/api/runs', { method: 'POST', body: run }); setMessage(`Run logged. ${d.run.xp_awarded} XP awarded.`); setEyePhrase(`Nice run, ${user.profile?.display_name || user.name}. +${d.run.xp_awarded} XP banked.`); if (runImageFiles) { const fd = new FormData(); Array.from(runImageFiles).forEach(f => fd.append('images[]', f)); await api(`/api/runs/${d.run.id}/images`, { method: 'POST', body: fd }); setRunImageFiles(null); if (fileInputRef.current) fileInputRef.current.value = ''; } const me = await api('/api/auth/me'); setUser(me.user); await refreshWorld(); setRefreshKey(k => k + 1); setRunLogOpen(false); };
   const saveProfile = async (p) => { const d = await api('/api/profile', { method: 'PATCH', body: p }); setUser(d.user); await refreshWorld(); setMessage('Profile saved.'); };
+  const completeTutorial = async () => {
+    setShowTutorial(false);
+    try {
+      const d = await api('/api/profile', {
+        method: 'PATCH',
+        body: {
+          display_name: user.profile?.display_name || user.name,
+          home_area: user.profile?.home_area || 'City Bowl',
+          runner_type: user.profile?.runner_type || 'Pathfinder',
+          weekly_goal_km: user.profile?.weekly_goal_km || 15,
+          privacy_level: user.profile?.privacy_level || 'private',
+          mobile_menu_side: mobileMenuSide,
+          tutorial_completed_at: new Date().toISOString(),
+        },
+      });
+      setUser(d.user);
+    } catch { }
+  };
+  const updateMobileSide = async (side) => {
+    setMobileMenuSide(side);
+    const d = await api('/api/profile', {
+      method: 'PATCH',
+      body: {
+        display_name: user.profile?.display_name || user.name,
+        home_area: user.profile?.home_area || 'City Bowl',
+        runner_type: user.profile?.runner_type || 'Pathfinder',
+        weekly_goal_km: user.profile?.weekly_goal_km || 15,
+        privacy_level: user.profile?.privacy_level || 'private',
+        mobile_menu_side: side,
+      },
+    });
+    setUser(d.user);
+    setMessage(`Mobile menu moved to the ${side}.`);
+  };
   const uploadAvatar = async (file) => { const fd = new FormData(); fd.append('avatar', file); try { const d = await api('/api/profile/avatar', { method: 'POST', body: fd }); setUser(d.user); setMessage('Avatar updated.'); } catch (err) { alert(err.message); } };
   const uploadBackground = async (file) => { const fd = new FormData(); fd.append('background', file); setMessage('Uploading profile cover...'); try { const d = await api('/api/profile/background', { method: 'POST', body: fd }); setUser(d.user); setMessage('Profile cover updated.'); } catch (err) { setMessage(err.message); } };
   const updateBio = async (bio) => { try { const d = await api('/api/profile/bio', { method: 'PATCH', body: { bio } }); setUser(d.user); setMessage('Bio saved.'); } catch (err) { alert(err.message); } };
@@ -1700,10 +1932,11 @@ function AppShell({ initialUser }) {
   return <>
     <canvas ref={canvasRef} className="particles" aria-hidden="true" />
     {mobileMenu && <button className="mobileNavScrim" aria-label="Close menu" onClick={() => setMobileMenu(false)} />}
-    <button className={`mobileEyeToggle${mobileMenu ? ' open' : ''}`} onClick={() => setMobileMenu(!mobileMenu)} aria-label={mobileMenu ? 'Close navigation' : 'Open navigation'}>
+    <button className={`mobileEyeToggle ${mobileMenuSide}${mobileMenu ? ' open' : ''}`} onClick={() => setMobileMenu(!mobileMenu)} aria-label={mobileMenu ? 'Close navigation' : 'Open navigation'}>
       {mobileMenu ? <X size={24} /> : <Eye small />}
     </button>
 
+    {showTutorial && <TutorialModal onClose={completeTutorial} />}
     {showProfileModal && <ProfileModal user={user} onlineIds={onlineIds} onClose={() => setShowProfileModal(false)} refreshKey={refreshKey} />}
     {(runLoading || selectedRun) && <RunDashboardModal run={selectedRun} loading={runLoading} onClose={() => { setSelectedRun(null); setRunLoading(false); }} />}
     {runLogOpen && <RunLogModal run={run} setRun={setRun} world={world} fileInputRef={fileInputRef} setRunImageFiles={setRunImageFiles} onSubmit={logRun} onClose={() => setRunLogOpen(false)} />}
@@ -1773,6 +2006,8 @@ function AppShell({ initialUser }) {
 
         {active === 'Cape Town' && <WorldMap regions={world.regions} friends={friends} profile={user.profile} myLocation={myLocation} friendLocations={friendLocations} beacons={beacons} onDropBeacon={dropBeacon} onMessageFriend={messageFriendFromMap} onLogLocation={requestAndLogLocation} locationStatus={locationStatus} locationLoading={locationLoading} realtimeConnected={realtimeConnected} />}
 
+        {active === 'Progress' && <ProgressPanel user={user} world={world} tasks={tasks} onNavigate={setActive} />}
+
         {active === 'Tasks' && <Panel eyebrow="Quest board" title={`${tasks.filter(t => t.status !== 'locked').length} active quests`}>{tasks.filter(t => t.status !== 'locked').length === 0 ? <div className="emptyState"><Compass size={28} /><p>No tasks available. Start logging runs in your home region.</p></div> : <div className="questBoard">{tasks.filter(t => t.status !== 'locked').map(t => { const progress = t.status === 'complete' ? 100 : t.status === 'in_progress' ? 58 : 18; return <button key={t.id} className={`questCard clickable ${t.status}`} onClick={() => setSelectedQuest(t)}><div className="questCardTop"><span>{t.region}</span><b>+{t.reward_xp} XP</b></div><strong>{t.title}</strong><small>{t.biome} &middot; {t.unlock_rule}</small><div className="questProgress"><i style={{ width: `${progress}%` }} /></div><div className="questCardFoot"><span>{t.status.replace('_', ' ')}</span><span>{progress}%</span></div></button>; })}</div>}</Panel>}
 
         {active === 'Runs' && <div className="runsView">
@@ -1792,9 +2027,12 @@ function AppShell({ initialUser }) {
         {active === 'Skill Tree' && <SkillTreePanel refreshKey={refreshKey} />}
         {active === 'Challenges' && <ChallengesPanel refreshKey={refreshKey} friends={friends} user={user} />}
 
+        {active === 'Help' && <HelpPanel onReplayTutorial={() => setShowTutorial(true)} />}
+
         {active === 'Profile' && <div className="grid">
           <ProfileHeroCard user={user} onAvatar={uploadAvatar} onBackground={uploadBackground} />
           <PackageInfoPanel user={user} />
+          <FriendCodeCard user={user} onMessage={setMessage} />
           <BadgeGallery refreshKey={refreshKey} />
           <AppearancePanel theme={theme} setTheme={setTheme} palette={palette} setPalette={setPalette} />
           <Panel eyebrow="Bio" title="About you"><form onSubmit={e => { e.preventDefault(); updateBio(e.target.bio.value); }}><textarea name="bio" defaultValue={user.profile?.bio || ''} rows={3} maxLength={500} placeholder="Tell other runners about yourself..." /><button className="primary" type="submit">Save bio</button></form></Panel>
@@ -1803,7 +2041,8 @@ function AppShell({ initialUser }) {
 
         {active === 'Settings' && <div className="grid">
           <AppearancePanel theme={theme} setTheme={setTheme} palette={palette} setPalette={setPalette} />
-          <Panel eyebrow="Runner type" title={user.profile?.runner_type || 'Balanced'}><div className="classGrid">{['Balanced', 'Explorer', 'Tempo', 'Endurance'].map(c => <button key={c} className={user.profile?.runner_type === c ? 'primary' : 'ghost'} onClick={() => saveProfile({ display_name: user.profile?.display_name || user.name, home_area: user.profile?.home_area || 'City Bowl', runner_type: c, weekly_goal_km: user.profile?.weekly_goal_km || 15, privacy_level: user.profile?.privacy_level || 'private' })}>{c}</button>)}</div></Panel>
+          <Panel eyebrow="Runner type" title={user.profile?.runner_type || 'Pathfinder'}><div className="classGrid">{runnerClasses.map(c => <button key={c.id} className={user.profile?.runner_type === c.id ? 'primary' : 'ghost'} onClick={() => saveProfile({ display_name: user.profile?.display_name || user.name, home_area: user.profile?.home_area || 'City Bowl', runner_type: c.id, weekly_goal_km: user.profile?.weekly_goal_km || 15, privacy_level: user.profile?.privacy_level || 'private', mobile_menu_side: mobileMenuSide })}>{c.title}</button>)}</div></Panel>
+          <Panel eyebrow="Accessibility" title="Mobile controls"><p className="muted">Move the floating Orrin menu toggle to the side that is easiest to reach.</p><div className="themeSwitch"><button className={mobileMenuSide === 'left' ? 'active' : ''} onClick={() => updateMobileSide('left')} type="button">Left</button><button className={mobileMenuSide === 'right' ? 'active' : ''} onClick={() => updateMobileSide('right')} type="button">Right</button></div><button className="ghost" type="button" onClick={() => setShowTutorial(true)}><BookOpen size={15} />Replay tutorial</button></Panel>
           <Panel eyebrow="Strava" title={stravaConnected ? 'Connected' : 'Disconnected'}><p className="muted">Route visibility defaults to private.</p>{stravaConnected ? <button className="ghostBtn" onClick={disconnectStrava}>Disconnect Strava</button> : <button className="primary" onClick={connectStrava} disabled={stravaLoading}><Cable size={15} /> Connect Strava</button>}</Panel>
           <Panel eyebrow="Danger zone" title="Data"><p className="muted">You can disconnect Strava at any time. Imported activities remain in your history.</p></Panel>
         </div>}
@@ -1815,8 +2054,8 @@ function AppShell({ initialUser }) {
 }
 
 function ProfileEditor({ user, onSave }) {
-  const [profile, setProfile] = useState({ display_name: user.profile?.display_name || user.name, home_area: user.profile?.home_area || 'City Bowl', runner_type: user.profile?.runner_type || 'Balanced', weekly_goal_km: user.profile?.weekly_goal_km || 15, privacy_level: user.profile?.privacy_level || 'private' });
-  return <Panel eyebrow="Full profile suite" title="Runner identity"><form className="form" onSubmit={e => { e.preventDefault(); onSave(profile); }}><label>Display name<input value={profile.display_name} onChange={e => setProfile({ ...profile, display_name: e.target.value })} /></label><label>Home area<input value={profile.home_area} onChange={e => setProfile({ ...profile, home_area: e.target.value })} /></label><div className="split"><label>Runner type<select value={profile.runner_type} onChange={e => setProfile({ ...profile, runner_type: e.target.value })}><option>Balanced</option><option>Explorer</option><option>Tempo</option><option>Endurance</option></select></label><label>Weekly goal km<input type="number" value={profile.weekly_goal_km} onChange={e => setProfile({ ...profile, weekly_goal_km: Number(e.target.value) })} /></label></div><label>Privacy<select value={profile.privacy_level} onChange={e => setProfile({ ...profile, privacy_level: e.target.value })}><option value="private">Private</option><option value="friends">Friends</option><option value="public">Public</option></select></label><button className="primary">Save profile</button></form></Panel>;
+  const [profile, setProfile] = useState({ display_name: user.profile?.display_name || user.name, home_area: user.profile?.home_area || 'City Bowl', runner_type: user.profile?.runner_type || 'Pathfinder', weekly_goal_km: user.profile?.weekly_goal_km || 15, privacy_level: user.profile?.privacy_level || 'private', mobile_menu_side: user.profile?.mobile_menu_side || 'right' });
+  return <Panel eyebrow="Full profile suite" title="Runner identity"><form className="form" onSubmit={e => { e.preventDefault(); onSave(profile); }}><label>Display name<input value={profile.display_name} onChange={e => setProfile({ ...profile, display_name: e.target.value })} /></label><label>Home shard<input value={profile.home_area} onChange={e => setProfile({ ...profile, home_area: e.target.value })} /></label><div className="split"><label>Runner class<select value={profile.runner_type} onChange={e => setProfile({ ...profile, runner_type: e.target.value })}>{runnerClasses.map(c => <option key={c.id}>{c.id}</option>)}</select></label><label>Weekly goal km<input type="number" value={profile.weekly_goal_km} onChange={e => setProfile({ ...profile, weekly_goal_km: Number(e.target.value) })} /></label></div><label>Privacy<select value={profile.privacy_level} onChange={e => setProfile({ ...profile, privacy_level: e.target.value })}><option value="private">Private</option><option value="friends">Friends</option><option value="public">Public</option></select></label><button className="primary">Save profile</button></form></Panel>;
 }
 
 function Root() {
