@@ -14,8 +14,15 @@ class PackageController extends Controller
     {
         $packages = Package::query()
             ->where('is_active', true)
+            ->where(function ($query) {
+                $query->where('key', 'not like', 'admin-%')
+                    ->where('key', 'not like', 'internal-%')
+                    ->where('key', 'not like', 'founder-%');
+            })
             ->orderBy('sort_order')
             ->get()
+            ->filter(fn (Package $pkg) => ! (bool) data_get($pkg->limits, 'admin'))
+            ->values()
             ->map(fn (Package $pkg) => [
                 'id' => $pkg->id,
                 'key' => $pkg->key,
@@ -69,6 +76,10 @@ class PackageController extends Controller
         $package = Package::query()->find($data['package_id']);
         if (! $package || ! $package->is_active) {
             return response()->json(['message' => 'Package not available.'], 404);
+        }
+
+        if ($this->isInternalPackage($package)) {
+            return response()->json(['message' => 'This package can only be assigned by an admin.'], 403);
         }
 
         if ($package->price_cents > 0) {
@@ -152,5 +163,12 @@ class PackageController extends Controller
         $package->update($data);
 
         return response()->json(['package' => $package->fresh()]);
+    }
+
+    private function isInternalPackage(Package $package): bool
+    {
+        return str_starts_with($package->key, 'admin-')
+            || str_starts_with($package->key, 'internal-')
+            || (bool) data_get($package->limits, 'admin');
     }
 }

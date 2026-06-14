@@ -61,8 +61,8 @@ input[type="file"]{cursor:pointer}
 @keyframes contentIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
 /* ── Auth ── */
-.authScreen{position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,430px);gap:clamp(28px,5vw,72px);align-items:center;padding:clamp(22px,5vw,72px);max-width:1360px;margin:0 auto}
-.authHero{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,.34fr);align-items:center;gap:clamp(22px,4vw,54px);padding-right:clamp(0px,3vw,36px)}
+.authScreen{position:relative;z-index:2;min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,430px);gap:clamp(28px,5vw,72px);align-items:start;padding:clamp(18px,4vh,44px) clamp(22px,5vw,72px) clamp(22px,5vw,72px);max-width:1360px;margin:0 auto}
+.authHero{display:grid;grid-template-columns:minmax(0,1fr) minmax(170px,.34fr);align-items:start;gap:clamp(22px,4vw,54px);padding-right:clamp(0px,3vw,36px);padding-top:clamp(18px,5vh,56px)}
 .authHero h1,.hero h1{margin:0;font-family:var(--font-display);font-size:clamp(3.2rem,7vw,6.7rem);line-height:.88;letter-spacing:-.035em;font-weight:650}
 .kicker{margin:0 0 14px;color:var(--accent);font-family:var(--font-display);font-weight:760;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
 .authHero p,.hero p{color:var(--muted);font-size:1.02rem;line-height:1.72;max-width:620px}
@@ -132,14 +132,17 @@ form,.form{display:grid;gap:12px}
 .classPick{display:grid;gap:8px}
 .miniHead{display:flex;align-items:center;justify-content:space-between;color:var(--muted-soft);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em}
 .miniHead strong{color:var(--accent);font-family:var(--font-display)}
-.classCard{display:grid;grid-template-columns:32px minmax(0,1fr);gap:10px;text-align:left;align-items:start;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.03);transition:all var(--transition)}
-.classCard svg{color:var(--accent);margin-top:2px}
-.classCard strong,.classCard small,.classCard em{display:block}
-.classCard strong{font-family:var(--font-display)}
-.classCard small{color:var(--muted);font-size:.78rem}
-.classCard em{color:var(--muted-soft);font-style:normal;font-size:.72rem;margin-top:3px}
-.classCard:hover,.classCard.selected{border-color:var(--accent-muted);background:var(--accent-soft);transform:translateY(-1px)}
-.classCard.selected{box-shadow:inset 3px 0 0 var(--accent)}
+.classTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;padding:5px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(0,0,0,.16)}
+.classTab{min-height:42px;border:1px solid transparent;border-radius:calc(var(--radius-sm) - 2px);background:transparent;color:var(--muted);display:grid;place-items:center;gap:3px;font-size:.68rem;font-weight:750;transition:all var(--transition)}
+.classTab svg{color:var(--accent)}
+.classTab span{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.classTab:hover,.classTab.selected{border-color:var(--accent-muted);background:var(--accent-soft);color:var(--text)}
+.classDetail{display:grid;grid-template-columns:30px minmax(0,1fr);gap:10px;align-items:start;padding:11px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.035)}
+.classDetail svg{color:var(--accent);margin-top:2px}
+.classDetail strong,.classDetail small,.classDetail em{display:block}
+.classDetail strong{font-family:var(--font-display)}
+.classDetail small{color:var(--muted);font-size:.78rem}
+.classDetail em{color:var(--muted-soft);font-style:normal;font-size:.72rem;margin-top:3px;line-height:1.45}
 .signupPackages{display:grid;gap:10px}
 .signupPackages .packageCard{padding:12px;border-radius:var(--radius-sm)}
 .signupPackages .packageFeatures{display:none}
@@ -545,6 +548,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .eye{width:120px;justify-self:center}
   .authScreen{grid-template-columns:1fr;padding:20px}
   .authHero{grid-template-columns:1fr}
+  .classTabs{grid-template-columns:repeat(3,minmax(0,1fr))}
   .mobileEyeToggle{display:grid}
   .mobileEyeToggle.left{left:18px;right:auto}
   .mobileEyeToggle.right{right:18px;left:auto}

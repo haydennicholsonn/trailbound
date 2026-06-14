@@ -43,12 +43,6 @@ class AuthController extends Controller
         }
 
         $referrer = $this->referrerFor($data['referral_code'] ?? null, strtolower($data['email']));
-        $user = User::query()->create([
-            'name' => $data['name'],
-            'email' => strtolower($data['email']),
-            'password' => Hash::make($data['password']),
-        ]);
-
         $package = ! empty($data['package_id'])
             ? Package::query()->where('id', $data['package_id'])->where('is_active', true)->first()
             : Package::query()->where('is_default', true)->first();
@@ -56,9 +50,18 @@ class AuthController extends Controller
         if (! $package) {
             return response()->json(['message' => 'Selected package is not available.'], 422);
         }
+        if ($this->isInternalPackage($package)) {
+            return response()->json(['message' => 'That package can only be assigned by an admin. Choose a public runner package.'], 403);
+        }
         if ($package->price_cents > 0) {
             return response()->json(['message' => 'Paid packages are coming soon. Choose Free for now.'], 422);
         }
+
+        $user = User::query()->create([
+            'name' => $data['name'],
+            'email' => strtolower($data['email']),
+            'password' => Hash::make($data['password']),
+        ]);
 
         UserProfile::query()->create([
             'user_id' => $user->id,
@@ -392,6 +395,13 @@ class AuthController extends Controller
         } while (UserProfile::query()->where('friend_code', $code)->exists());
 
         return $code;
+    }
+
+    private function isInternalPackage(Package $package): bool
+    {
+        return str_starts_with($package->key, 'admin-')
+            || str_starts_with($package->key, 'internal-')
+            || (bool) data_get($package->limits, 'admin');
     }
 
     private function referrerFor(?string $code, string $email): ?User

@@ -217,6 +217,8 @@ function AuthGate({ onAuthed }) {
       setLoading(false);
     }
   };
+  const selectedClass = runnerClasses.find(c => c.id === form.runner_type) || runnerClasses[0];
+  const SelectedClassIcon = selectedClass.icon;
   return (
     <main className="authScreen">
       <section className="authHero">
@@ -247,13 +249,19 @@ function AuthGate({ onAuthed }) {
           </div>
           <div className="classPick">
             <div className="miniHead"><span>Runner class</span><strong>{form.runner_type}</strong></div>
-            {runnerClasses.map(c => {
+            <div className="classTabs" role="tablist" aria-label="Runner class">
+              {runnerClasses.map(c => {
               const Icon = c.icon;
-              return <button key={c.id} type="button" className={`classCard${form.runner_type === c.id ? ' selected' : ''}`} onClick={() => setForm({ ...form, runner_type: c.id })}>
-                <Icon size={18} />
-                <span><strong>{c.title}</strong><small>{c.copy}</small><em>{c.start}</em></span>
+              return <button key={c.id} type="button" role="tab" aria-selected={form.runner_type === c.id} className={`classTab${form.runner_type === c.id ? ' selected' : ''}`} onClick={() => setForm({ ...form, runner_type: c.id })}>
+                <Icon size={16} />
+                <span>{c.title}</span>
               </button>;
-            })}
+              })}
+            </div>
+            <div className="classDetail">
+              <SelectedClassIcon size={18} />
+              <span><strong>{selectedClass.title}</strong><small>{selectedClass.copy}</small><em>{selectedClass.play} {selectedClass.start}.</em></span>
+            </div>
           </div>
           <div className="split"><label>Weekly goal km<input type="number" min="1" max="250" value={form.weekly_goal_km} onChange={e => setForm({ ...form, weekly_goal_km: Number(e.target.value) })} /></label><label>Referral code <small>Optional friend code or username</small><input value={form.referral_code} onChange={e => setForm({ ...form, referral_code: e.target.value })} placeholder="HAYDEN-123AB" /></label></div>
           {packages.length > 0 && <div className="signupPackages">
