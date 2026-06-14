@@ -184,8 +184,12 @@ class ChallengeController extends Controller
 
         $profile = $user->profile;
         if ($challenge->reward_xp > 0) {
+            $oldLevel = (int) ($profile->level ?? 1);
             $profile->increment('xp', $challenge->reward_xp);
             $profile->level = max(1, (int) floor(sqrt($profile->xp / 500)) + 1);
+            if ($profile->level > $oldLevel) {
+                $profile->skill_points = ((int) ($profile->skill_points ?? 0)) + ($profile->level - $oldLevel);
+            }
             $profile->save();
         }
 

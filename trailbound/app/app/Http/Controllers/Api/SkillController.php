@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\SkillNode;
 use App\Models\UserSkillNode;
 use App\Support\Jwt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -48,12 +49,26 @@ class SkillController extends Controller
             ]);
 
         $branches = $nodes->groupBy('branch');
+        $spent = $unlockedNodeIds->count();
+        $earned = max(0, (int) ($profile->level ?? 1) - 1);
+        $available = max((int) ($profile->skill_points ?? 0), max(0, $earned - $spent));
+        if ($profile && (int) ($profile->skill_points ?? 0) !== $available) {
+            $profile->update(['skill_points' => $available]);
+        }
+        $nextFreeRespecAt = $profile?->last_respec_at?->copy()->addWeek();
+        $freeRespecAvailable = ! $profile?->last_respec_at || $profile->last_respec_at->lte(now()->subWeek());
 
         return response()->json([
             'branches' => $branches,
             'level' => $profile->level ?? 1,
             'xp' => $profile->xp ?? 0,
             'tears' => $profile->tears ?? 0,
+            'skill_points' => $available,
+            'spent_points' => $spent,
+            'earned_points' => $earned,
+            'free_respec_available' => $freeRespecAvailable,
+            'next_free_respec_at' => $freeRespecAvailable ? null : $nextFreeRespecAt?->toIso8601String(),
+            'respec_cost_tears' => $freeRespecAvailable ? 0 : 10,
         ]);
     }
 
@@ -80,26 +95,60 @@ class SkillController extends Controller
             return response()->json(['message' => 'Requirements not met.'], 403);
         }
 
-        if ($node->cost_tears > 0) {
-            $success = WalletController::debit($user->id, $node->cost_tears, 'skill_tree', 'Unlocked skill: ' . $node->name, $node);
-            if (! $success) {
-                return response()->json([
-                    'message' => 'Not enough Tears. You need ' . $node->cost_tears . ' Tears.',
-                    'balance' => $profile->tears ?? 0,
-                    'required' => $node->cost_tears,
-                ], 402);
-            }
+        $spent = $unlockedNodeIds->count();
+        $earned = max(0, (int) ($profile->level ?? 1) - 1);
+        $available = max((int) ($profile->skill_points ?? 0), max(0, $earned - $spent));
+        if ($available < 1) {
+            return response()->json(['message' => 'No skill points available. Level up to earn another point.'], 402);
         }
 
-        UserSkillNode::query()->create([
-            'user_id' => $user->id,
-            'skill_node_id' => $node->id,
-            'unlocked_at' => now(),
-        ]);
+        DB::transaction(function () use ($user, $node, $profile, $available) {
+            UserSkillNode::query()->create([
+                'user_id' => $user->id,
+                'skill_node_id' => $node->id,
+                'unlocked_at' => now(),
+            ]);
+            $profile->update(['skill_points' => max(0, $available - 1)]);
+        });
 
         return response()->json([
             'message' => 'Skill unlocked: ' . $node->name,
+            'skill_points' => $user->profile->fresh()->skill_points ?? 0,
             'balance' => $user->profile->fresh()->tears ?? 0,
+        ]);
+    }
+
+    public function respec(Request $request): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (! $user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $profile = $user->profile;
+        $spent = UserSkillNode::query()->where('user_id', $user->id)->count();
+        if ($spent === 0) {
+            return response()->json(['message' => 'You have no unlocked skills to respec.'], 422);
+        }
+
+        $free = ! $profile->last_respec_at || $profile->last_respec_at->lte(now()->subWeek());
+        if (! $free && ! WalletController::debit($user->id, 10, 'skill_respec', 'Skill tree respec')) {
+            return response()->json(['message' => 'Respec costs 10 Tears until your weekly free respec resets.'], 402);
+        }
+
+        DB::transaction(function () use ($user, $profile, $spent) {
+            UserSkillNode::query()->where('user_id', $user->id)->delete();
+            $profile->update([
+                'skill_points' => max(0, (int) $profile->skill_points) + $spent,
+                'last_respec_at' => now(),
+                'respec_count' => ((int) $profile->respec_count) + 1,
+            ]);
+        });
+
+        return response()->json([
+            'message' => $free ? 'Skill tree reset. Weekly free respec used.' : 'Skill tree reset for 10 Tears.',
+            'skill_points' => $profile->fresh()->skill_points,
+            'tears' => $profile->fresh()->tears,
         ]);
     }
 

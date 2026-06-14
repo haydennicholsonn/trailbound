@@ -66,9 +66,20 @@ input[type="file"]{cursor:pointer}
 .authHero h1,.hero h1{margin:0;font-family:var(--font-display);font-size:clamp(3.2rem,7vw,6.7rem);line-height:.88;letter-spacing:-.035em;font-weight:650}
 .kicker{margin:0 0 14px;color:var(--accent);font-family:var(--font-display);font-weight:760;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
 .authHero p,.hero p{color:var(--muted);font-size:1.02rem;line-height:1.72;max-width:620px}
-.authHero>div::after{content:"Private alpha · Cape Town first · real-world progression";display:block;width:max-content;max-width:100%;margin-top:24px;padding-top:14px;border-top:1px solid var(--border-strong);color:var(--muted-soft);font-family:var(--font-display);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase}
+.authHeroCopy::after{content:"Private alpha · Cape Town first · real-world progression";display:block;width:max-content;max-width:100%;margin-top:24px;padding-top:14px;border-top:1px solid var(--border-strong);color:var(--muted-soft);font-family:var(--font-display);font-size:.74rem;letter-spacing:.08em;text-transform:uppercase}
 .authProof{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:30px;max-width:620px;border:1px solid var(--border);background:var(--border)}
 .authProof span{min-height:76px;display:flex;align-items:flex-end;padding:14px;background:rgba(10,12,9,.72);color:var(--text);font-family:var(--font-display);font-size:.88rem;font-weight:650;letter-spacing:-.01em}
+.authHeroCopy{position:relative}
+.authHeroCopy::before{content:"";position:absolute;inset:-32px -24px auto -24px;height:220px;background:radial-gradient(circle at 18% 30%,rgba(var(--accent-rgb),.16),transparent 58%);pointer-events:none;z-index:-1}
+.authSignalGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px;max-width:620px}
+.authSignalGrid div{padding:14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.035)}
+.authSignalGrid b{display:block;font-family:var(--font-display);font-size:1.02rem;color:var(--accent)}
+.authSignalGrid span{display:block;margin-top:3px;color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;font-weight:750}
+.authEyeStage{display:grid;gap:14px;justify-items:center;padding:24px;border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg,var(--accent-soft),rgba(244,239,231,.018))}
+.authEyeStage span{color:var(--muted);font-size:.8rem;text-align:center;max-width:190px}
+.authPanelHead{display:grid;gap:8px;padding-bottom:4px}
+.authPanelHead .brandLogo{margin:0}
+.authPanelHead p{margin:0;color:var(--muted);font-size:.86rem;line-height:1.5}
 p.muted{color:var(--muted);font-size:.9rem}
 .emptyState{display:grid;place-items:center;gap:8px;padding:32px 16px;text-align:center;color:var(--muted)}
 .emptyState svg{opacity:.4}
@@ -83,7 +94,7 @@ p.muted{color:var(--muted);font-size:.9rem}
 .panelHead span{font-size:.68rem;font-weight:760;letter-spacing:.14em;color:var(--muted-soft);text-transform:uppercase}
 .panelHead strong{font-size:1rem;font-weight:650;font-family:var(--font-display);letter-spacing:-.01em}
 .authPanel{border:1px solid var(--border-strong);border-radius:var(--radius);background:linear-gradient(180deg,rgba(244,239,231,.075),rgba(244,239,231,.025)),rgba(16,18,14,.88);backdrop-filter:blur(28px);padding:28px;display:grid;gap:17px;position:relative;z-index:2;box-shadow:0 36px 90px rgba(0,0,0,.34),inset 0 1px 0 rgba(244,239,231,.12);animation:contentIn .36s ease-out}
-.authPanel::before{content:"Runner access";font-family:var(--font-display);font-size:.7rem;font-weight:780;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-soft);border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:2px}
+.authPanel::before{content:"";position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(var(--accent-rgb),.18),transparent 34%,rgba(125,211,168,.08));opacity:.55;pointer-events:none;z-index:-1}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:4px;border:1px solid var(--border);border-radius:var(--radius);background:rgba(0,0,0,.18)}
 .tabs button{min-height:40px;border-radius:var(--radius-sm);border:1px solid transparent;background:transparent;font-weight:720;font-size:.84rem;transition:all var(--transition);position:relative;color:var(--muted)}
 .tabs button:hover:not(.active){background:rgba(244,239,231,.045);color:var(--text)}
@@ -708,7 +719,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @media(max-width:860px){
   .authProof{grid-template-columns:1fr}
   .authProof span{min-height:52px}
-  .authHero>div::after{width:auto}
+  .authHeroCopy::after{width:auto}
 }
 
 /* Launch-quality analytics and appearance system */
@@ -1599,6 +1610,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .skillTreeLayout{display:grid;gap:16px}
 .skillTreeBar{display:flex;align-items:center;gap:12px;padding:0 0 12px;border-bottom:1px solid var(--border)}
 .skillTreeBar h2{margin:0;font-family:var(--font-display);font-size:1.7rem;flex:1}
+.skillPointPills{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.skillPointPills .ghost{min-height:32px;padding:0 10px;font-size:.76rem}
+.skillTreeExplainer{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--accent-soft),rgba(244,239,231,.02))}
+.skillTreeExplainer strong{font-family:var(--font-display);font-size:.9rem}
+.skillTreeExplainer span{color:var(--muted);font-size:.8rem;text-align:right}
 .skillBranches{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 .skillBranch{display:grid;gap:10px;padding:18px;border:1px solid var(--border);border-radius:var(--radius);background:rgba(244,239,231,.03)}
 .branchHeader{display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)}
@@ -1620,7 +1636,8 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .skillDetailModal{max-width:500px}
 .skillEffect{display:flex;align-items:center;gap:8px;padding:12px;border-radius:var(--radius-sm);background:rgba(var(--accent-rgb),.08);border:1px solid var(--accent-muted);color:var(--accent-strong);font-weight:700}
 .skillActions{margin-top:8px;display:flex;justify-content:flex-end}
-@media(max-width:860px){.skillBranches{grid-template-columns:1fr}.skillNode{width:auto;flex:1;min-width:72px}}
+@media(max-width:1120px){.skillBranches{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:860px){.skillBranches{grid-template-columns:1fr}.skillNode{width:auto;flex:1;min-width:72px}.skillTreeBar,.skillTreeExplainer{display:grid}.skillTreeExplainer span{text-align:left}.skillPointPills{justify-content:flex-start}}
 
 /* ─── Challenges ─── */
 .challengeTabs{display:flex;gap:8px}
@@ -1710,7 +1727,31 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .adminPackageRow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:12px;border-radius:var(--radius-sm);background:rgba(244,239,231,.035);border:1px solid var(--border)}
 .adminPackageRow strong{display:block;font-size:.9rem}
 .adminPackageRow small{display:block;color:var(--muted);font-size:.72rem}
+.crmToolbar{display:grid;grid-template-columns:minmax(220px,1fr) 150px 170px;gap:8px}
+.crmToolbar label{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.03);padding:0 10px}
+.crmToolbar label input{border:0;background:transparent;padding-left:0}
+.crmGrid{display:grid;grid-template-columns:minmax(260px,.9fr) minmax(320px,1.1fr);gap:12px;min-height:420px}
+.crmList{display:grid;gap:8px;align-content:start;max-height:520px;overflow:auto;padding-right:4px}
+.crmPlayer{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.03);color:var(--text);transition:all var(--transition)}
+.crmPlayer:hover,.crmPlayer.active{border-color:var(--accent-muted);background:var(--accent-soft)}
+.crmPlayer strong,.crmHero strong{display:block;font-family:var(--font-display);font-size:.92rem}
+.crmPlayer small,.crmHero small,.crmPlayer em,.crmHero em{display:block;color:var(--muted);font-size:.72rem;font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crmEditor{display:grid;gap:12px;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:linear-gradient(180deg,rgba(244,239,231,.045),rgba(244,239,231,.018))}
+.crmEditor.empty{place-items:center;text-align:center;color:var(--muted);align-content:center}
+.crmHero{display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:center;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.rowAvatar.large{width:52px;height:52px;font-size:1.1rem}
+.crmStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.crmStats div{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:rgba(244,239,231,.035);text-align:center}
+.crmStats b{display:block;font-family:var(--font-display);font-size:1.2rem;color:var(--accent)}
+.crmStats span{display:block;color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.checkLine{display:flex!important;align-items:center;gap:8px!important;min-height:40px}
+.checkLine input{width:auto}
+.crmEditor textarea{min-height:100px;resize:vertical}
+.crmActions{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.tearAdjust{display:flex!important;align-items:center;gap:8px!important;margin:0}
+.tearAdjust input{width:88px}
 @media(max-width:860px){.adminEconGrid{grid-template-columns:1fr 1fr}}
+@media(max-width:980px){.crmToolbar,.crmGrid{grid-template-columns:1fr}.crmList{max-height:360px}}
 
 /* ─── Dashboard wallet card ─── */
 .tearsBalanceCard{display:flex;align-items:center;gap:14px}

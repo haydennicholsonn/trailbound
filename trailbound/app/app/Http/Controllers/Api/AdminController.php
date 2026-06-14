@@ -14,6 +14,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Models\UserItem;
 use App\Models\UserTask;
+use App\Models\WalletTransaction;
 use App\Support\Jwt;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,12 @@ class AdminController extends Controller
                 'friends' => $player->friends_count,
                 'friend_code' => $player->profile?->friend_code,
                 'tears' => $player->profile?->tears ?? 0,
+                'skill_points' => $player->profile?->skill_points ?? 0,
                 'package_id' => $player->profile?->package_id,
+                'package' => $player->profile?->package_id ? Package::query()->find($player->profile->package_id)?->name : null,
+                'is_admin' => (bool) $player->is_admin,
+                'lifecycle_stage' => $player->profile?->lifecycle_stage ?? 'new',
+                'admin_notes' => $player->profile?->admin_notes,
                 'joined_at' => $player->created_at,
             ]);
 
@@ -138,8 +144,8 @@ class AdminController extends Controller
 
         $packageMix = DB::table('packages')
             ->leftJoin('user_profiles', 'user_profiles.package_id', '=', 'packages.id')
-            ->select('packages.id', 'packages.name', 'packages.slug', 'packages.price_cents', DB::raw('count(user_profiles.id) as users'))
-            ->groupBy('packages.id', 'packages.name', 'packages.slug', 'packages.price_cents')
+            ->select('packages.id', 'packages.name', 'packages.key', 'packages.price_cents', DB::raw('count(user_profiles.id) as users'))
+            ->groupBy('packages.id', 'packages.name', 'packages.key', 'packages.price_cents')
             ->orderBy('packages.sort_order')
             ->get();
 
@@ -152,11 +158,137 @@ class AdminController extends Controller
         return response()->json(compact('totals', 'players', 'regions', 'quests', 'activity', 'referrals', 'recentReferrals', 'packageMix', 'challengeMix'));
     }
 
+    public function players(Request $request): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($user)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $search = trim((string) $request->query('search', ''));
+        $stage = $request->query('stage');
+        $packageId = $request->query('package_id');
+
+        $players = User::query()
+            ->with('profile')
+            ->withCount(['runActivities', 'friends'])
+            ->when($search !== '', fn ($query) => $query->where(function ($inner) use ($search) {
+                $inner->where('name', 'ilike', "%{$search}%")
+                    ->orWhere('email', 'ilike', "%{$search}%")
+                    ->orWhereHas('profile', fn ($profile) => $profile->where('display_name', 'ilike', "%{$search}%")->orWhere('friend_code', 'ilike', "%{$search}%"));
+            }))
+            ->when($stage && $stage !== 'all', fn ($query) => $query->whereHas('profile', fn ($profile) => $profile->where('lifecycle_stage', $stage)))
+            ->when($packageId && $packageId !== 'all', fn ($query) => $query->whereHas('profile', fn ($profile) => $profile->where('package_id', $packageId)))
+            ->latest()
+            ->limit(60)
+            ->get()
+            ->map(fn (User $player) => $this->playerPayload($player));
+
+        return response()->json([
+            'players' => $players,
+            'packages' => Package::query()->orderBy('sort_order')->get(['id', 'key', 'name']),
+            'stages' => ['new', 'active', 'at_risk', 'vip', 'founder', 'support'],
+        ]);
+    }
+
+    public function updatePlayer(Request $request, int $playerId): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($user)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $player = User::query()->with('profile')->find($playerId);
+        if (! $player || ! $player->profile) {
+            return response()->json(['message' => 'Player not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'is_admin' => ['nullable', 'boolean'],
+            'package_id' => ['nullable', 'exists:packages,id'],
+            'lifecycle_stage' => ['nullable', 'string', 'max:40'],
+            'admin_notes' => ['nullable', 'string', 'max:2000'],
+            'skill_points' => ['nullable', 'integer', 'min:0', 'max:999'],
+        ]);
+
+        if (array_key_exists('is_admin', $data)) {
+            $player->update(['is_admin' => (bool) $data['is_admin']]);
+        }
+
+        $player->profile->update(collect($data)->only(['package_id', 'lifecycle_stage', 'admin_notes', 'skill_points'])->all());
+
+        return response()->json([
+            'message' => 'Player updated.',
+            'player' => $this->playerPayload($player->fresh('profile')),
+        ]);
+    }
+
+    public function adjustTears(Request $request, int $playerId): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($user)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $player = User::query()->with('profile')->find($playerId);
+        if (! $player || ! $player->profile) {
+            return response()->json(['message' => 'Player not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'amount' => ['required', 'integer', 'min:-10000', 'max:10000', 'not_in:0'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $newBalance = max(0, (int) $player->profile->tears + (int) $data['amount']);
+        $type = ((int) $data['amount']) > 0 ? 'earned' : 'spent';
+        $player->profile->update(['tears' => $newBalance]);
+        WalletTransaction::query()->create([
+            'user_id' => $player->id,
+            'type' => $type,
+            'amount' => abs((int) $data['amount']),
+            'balance_after' => $newBalance,
+            'source' => 'admin',
+            'note' => $data['note'] ?? 'Admin CRM adjustment',
+        ]);
+
+        return response()->json([
+            'message' => 'Tears adjusted.',
+            'player' => $this->playerPayload($player->fresh('profile')),
+        ]);
+    }
+
     private function isAdmin(?User $user): bool
     {
         if (! $user) {
             return false;
         }
         return (bool) ($user->is_admin ?? false) || collect(config('trailbound.admin_emails', []))->contains(strtolower($user->email));
+    }
+
+    private function playerPayload(User $player): array
+    {
+        $package = $player->profile?->package_id ? Package::query()->find($player->profile->package_id) : null;
+
+        return [
+            'id' => $player->id,
+            'name' => $player->name,
+            'email' => $player->email,
+            'display_name' => $player->profile?->display_name,
+            'level' => $player->profile?->level ?? 1,
+            'xp' => $player->profile?->xp ?? 0,
+            'tears' => $player->profile?->tears ?? 0,
+            'skill_points' => $player->profile?->skill_points ?? 0,
+            'total_km' => (float) ($player->profile?->total_km ?? 0),
+            'total_runs' => $player->run_activities_count ?? $player->runActivities()->count(),
+            'friends' => $player->friends_count ?? $player->friends()->count(),
+            'friend_code' => $player->profile?->friend_code,
+            'package_id' => $player->profile?->package_id,
+            'package' => $package?->name,
+            'is_admin' => (bool) $player->is_admin,
+            'lifecycle_stage' => $player->profile?->lifecycle_stage ?? 'new',
+            'admin_notes' => $player->profile?->admin_notes,
+            'joined_at' => $player->created_at,
+        ];
     }
 }

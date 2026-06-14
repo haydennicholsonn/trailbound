@@ -22,6 +22,7 @@ const runnerClasses = [
   { id: 'Wanderer', icon: Map, title: 'Wanderer', copy: 'Exploration and discovery focused.', play: 'For runners who want to reveal every shard.', strengths: ['Region unlocks', 'Route variety', 'Discovery XP'], start: 'Exploration branch' },
   { id: 'Strategist', icon: Sword, title: 'Strategist', copy: 'Challenge and reward optimization.', play: 'For players who want efficient XP, Tears, and quests.', strengths: ['Rewards', 'Challenges', 'Skill planning'], start: 'Tactics branch' },
 ];
+const iconMap = { Activity, BarChart3, BookOpen, Compass, Eye: EyeIcon, Gauge, Map, MapPin, MessageCircle, Navigation, RadioTower, Shield, Sparkles, Star, Timer, Trophy, Users, Zap };
 
 async function api(path, options = {}) {
   let body = options.body; let hdrs = { Accept: 'application/json', ...(options.headers || {}) };
@@ -218,8 +219,22 @@ function AuthGate({ onAuthed }) {
   };
   return (
     <main className="authScreen">
-      <section className="authHero"><div><p className="kicker">Cape Town alpha</p><h1>Trailbound</h1><p>Have your real life runs turn into quests, XP and exploration. Pick your runner class, start from your real shard, and reveal Cape Town one run at a time.</p><div className="authProof"><span>Real shards</span><span>XP and Tears</span><span>Social quests</span></div></div><Eye /></section>
+      <section className="authHero">
+        <div className="authHeroCopy">
+          <p className="kicker">Cape Town alpha</p>
+          <h1>{mode === 'login' ? 'Return to the shard.' : 'Run the city like a living game.'}</h1>
+          <p>{mode === 'login' ? 'Pick up your quests, check your friends, and see what Orrin noticed while you were away.' : 'Trailbound turns real Cape Town runs into map discovery, quests, XP, Tears, badges, and social moments worth showing off.'}</p>
+          <div className="authProof"><span>18 real shards</span><span>Quest rewards</span><span>Live friends</span></div>
+          <div className="authSignalGrid">
+            <div><b>2 km</b><span>starter quest</span></div>
+            <div><b>+1</b><span>skill point per level</span></div>
+            <div><b>#trailboundapp</b><span>share-ready</span></div>
+          </div>
+        </div>
+        <div className="authEyeStage"><Eye /><span>Orrin is watching your route wake up.</span></div>
+      </section>
       <form className="authPanel" onSubmit={submit}>
+        <div className="authPanelHead"><BrandLogo compact /><p>{mode === 'login' ? 'Sign in and get back to your current zone.' : 'Create your runner, detect your starting shard, and choose your first path.'}</p></div>
         <div className="tabs"><button type="button" className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Register</button><button type="button" className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Login</button></div>
         {mode === 'register' && <>
           <label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></label>
@@ -467,7 +482,7 @@ const capeFogFeature = (regions) => ({
     type: 'Polygon',
     coordinates: [
       [[18.18, -33.72], [18.82, -33.72], [18.82, -34.23], [18.18, -34.23], [18.18, -33.72]],
-      ...(regions || []).filter(region => region.polygon?.coordinates?.[0]).map(region => region.polygon.coordinates[0]),
+      ...(regions || []).filter(region => region.status !== 'locked' && region.polygon?.coordinates?.[0]).map(region => region.polygon.coordinates[0]),
     ],
   },
   properties: {},
@@ -1190,14 +1205,32 @@ function SkillTreePanel({ refreshKey }) {
   const load = useCallback(() => { setLoading(true); api('/api/skills/tree').then(setTree).catch(() => setTree(null)).finally(() => setLoading(false)); }, []);
   useEffect(() => { load(); }, [refreshKey, load]);
   const unlock = async (nodeId) => { try { await api(`/api/skills/${nodeId}/unlock`, { method: 'POST' }); load(); setSelected(null); } catch (err) { alert(err.message); } };
+  const respec = async () => {
+    const cost = tree?.respec_cost_tears || 0;
+    if (!confirm(cost ? `Respec costs ${cost} Tears. Reset your skill tree?` : 'Use your weekly free respec and reset your skill tree?')) return;
+    try { const d = await api('/api/skills/respec', { method: 'POST' }); alert(d.message); load(); } catch (err) { alert(err.message); }
+  };
   if (loading) return <Panel eyebrow="Progression" title="Skill Tree"><div className="skeletonCard"><div className="skeleton skeletonBlock" /></div></Panel>;
   const branches = tree?.branches || {};
-  const branchNames = { endurance: 'Endurance', explorer: 'Explorer', tempo: 'Tempo' };
-  const branchColors = { endurance: '#fb7185', explorer: '#60a5fa', tempo: '#7dd3a8' };
-  const branchIcons = { endurance: Zap, explorer: Compass, tempo: Gauge };
+  const branchNames = { endurance: 'Endurance', explorer: 'Explorer', tempo: 'Tempo', social: 'Social' };
+  const branchColors = { endurance: '#fb7185', explorer: '#60a5fa', tempo: '#7dd3a8', social: '#facc15' };
+  const branchIcons = { endurance: Timer, explorer: Compass, tempo: Gauge, social: Users };
 
   return <div className="skillTreeLayout">
-    <div className="skillTreeBar"><span className="kicker">Skill tree</span><h2>Runner progression</h2><WalletDisplay balance={tree?.tears || 0} compact /></div>
+    <div className="skillTreeBar">
+      <span className="kicker">Skill tree</span>
+      <h2>Runner progression</h2>
+      <div className="skillPointPills">
+        <Chip tone="good">{tree?.skill_points || 0} points</Chip>
+        <Chip>{tree?.spent_points || 0} spent</Chip>
+        <WalletDisplay balance={tree?.tears || 0} compact />
+        <button className="ghost" onClick={respec} disabled={!tree?.spent_points}><Sparkles size={14} /> Respec {tree?.respec_cost_tears ? `${tree.respec_cost_tears} Tears` : 'free'}</button>
+      </div>
+    </div>
+    <div className="skillTreeExplainer">
+      <strong>Earn 1 skill point every time you level up.</strong>
+      <span>{tree?.free_respec_available ? 'Your weekly free respec is ready.' : `Next free respec: ${tree?.next_free_respec_at ? new Date(tree.next_free_respec_at).toLocaleString() : 'soon'}. Until then it costs 10 Tears.`}</span>
+    </div>
     <div className="skillBranches">
       {Object.entries(branches).map(([branchName, nodes]) => {
         const BranchIcon = branchIcons[branchName] || Sword;
@@ -1224,7 +1257,7 @@ function SkillTreePanel({ refreshKey }) {
                             onClick={() => setSelected(node)}
                             style={{ '--branch-color': branchColors[branchName] }}
                           >
-                            <span className="nodeIcon">{node.icon || <Star size={16} />}</span>
+                            <span className="nodeIcon">{React.createElement(iconMap[node.icon] || Star, { size: 17 })}</span>
                             <span className="nodeName">{node.name}</span>
                           </button>
                         </div>
@@ -1253,7 +1286,7 @@ function SkillTreePanel({ refreshKey }) {
             <div><b>{selected.cost_tears > 0 ? `${selected.cost_tears} Tears` : 'Free'}</b><span>cost</span></div>
           </div>
           <div className="skillActions">
-            {selected.unlocked ? <span className="chip good">Unlocked</span> : selected.available ? <button className="primary" onClick={() => unlock(selected.id)}>Unlock</button> : <span className="chip">Requirements not met</span>}
+            {selected.unlocked ? <span className="chip good">Unlocked</span> : selected.available ? <button className="primary" onClick={() => unlock(selected.id)} disabled={(tree?.skill_points || 0) < 1}>Unlock for 1 point</button> : <span className="chip">Requirements not met</span>}
           </div>
         </div>
       </div>
@@ -1603,6 +1636,60 @@ function NotificationPreferencesPanel({ onSaved }) {
   </Panel>;
 }
 
+function AdminPlayerEditor({ player, packages, stages, onSaved }) {
+  const [draft, setDraft] = useState(null);
+  const [tearAmount, setTearAmount] = useState(10);
+
+  useEffect(() => {
+    setDraft(player ? {
+      is_admin: !!player.is_admin,
+      package_id: player.package_id || '',
+      lifecycle_stage: player.lifecycle_stage || 'new',
+      admin_notes: player.admin_notes || '',
+      skill_points: player.skill_points || 0,
+    } : null);
+  }, [player]);
+
+  if (!player || !draft) {
+    return <div className="crmEditor empty"><UserRound size={28} /><strong>Select a player</strong><small>Choose a runner to view account state, notes, package, and support tools.</small></div>;
+  }
+
+  const save = async () => {
+    const d = await api(`/api/admin/players/${player.id}`, { method: 'PATCH', body: { ...draft, package_id: draft.package_id || null } });
+    onSaved?.(d.player);
+  };
+  const adjustTears = async () => {
+    const amount = Number(tearAmount);
+    if (!amount) return;
+    const d = await api(`/api/admin/players/${player.id}/tears`, { method: 'POST', body: { amount, note: 'Admin CRM adjustment' } });
+    onSaved?.(d.player);
+    setTearAmount(10);
+  };
+
+  return <div className="crmEditor">
+    <div className="crmHero">
+      <span className="rowAvatar large">{(player.display_name || player.name || '?')[0].toUpperCase()}</span>
+      <div><strong>{player.display_name || player.name}</strong><small>{player.email}</small><em>{player.friend_code || 'No friend code'} &middot; {player.total_km}km &middot; {player.total_runs} runs</em></div>
+    </div>
+    <div className="crmStats">
+      <div><b>{player.level}</b><span>Level</span></div>
+      <div><b>{player.tears}</b><span>Tears</span></div>
+      <div><b>{player.skill_points}</b><span>Skill points</span></div>
+    </div>
+    <label className="checkLine"><input type="checkbox" checked={draft.is_admin} onChange={e => setDraft({ ...draft, is_admin: e.target.checked })} /> Full admin access</label>
+    <div className="split">
+      <label>Package<select value={draft.package_id} onChange={e => setDraft({ ...draft, package_id: e.target.value })}><option value="">No package</option>{packages.map(pkg => <option key={pkg.id} value={pkg.id}>{pkg.name}</option>)}</select></label>
+      <label>Lifecycle<select value={draft.lifecycle_stage} onChange={e => setDraft({ ...draft, lifecycle_stage: e.target.value })}>{stages.map(stage => <option key={stage} value={stage}>{stage}</option>)}</select></label>
+    </div>
+    <label>Skill points<input type="number" min="0" max="999" value={draft.skill_points} onChange={e => setDraft({ ...draft, skill_points: Number(e.target.value) })} /></label>
+    <label>Admin notes<textarea value={draft.admin_notes} onChange={e => setDraft({ ...draft, admin_notes: e.target.value })} placeholder="Support notes, account state, package context..." /></label>
+    <div className="crmActions">
+      <button className="primary" onClick={save} type="button">Save player</button>
+      <label className="tearAdjust"><Droplet size={14} /><input type="number" value={tearAmount} onChange={e => setTearAmount(e.target.value)} /><button className="ghost" onClick={adjustTears} type="button">Adjust Tears</button></label>
+    </div>
+  </div>;
+}
+
 function AdminPanel() {
   const [stats, setStats] = useState(null);
   const [error, setError] = useState('');
@@ -1610,8 +1697,18 @@ function AdminPanel() {
   const [regionFilter, setRegionFilter] = useState('all');
   const [packageTab, setPackageTab] = useState(false);
   const [packages, setPackages] = useState(null);
+  const [crm, setCrm] = useState({ players: [], packages: [], stages: [] });
+  const [crmSearch, setCrmSearch] = useState('');
+  const [crmStage, setCrmStage] = useState('all');
+  const [crmPackage, setCrmPackage] = useState('all');
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const loadStats = () => api('/api/admin/stats').then(setStats).catch(err => setError(err.message));
+  const loadCrm = useCallback(() => {
+    const qs = new URLSearchParams({ search: crmSearch, stage: crmStage, package_id: crmPackage });
+    api(`/api/admin/players?${qs}`).then(setCrm).catch(err => setError(err.message));
+  }, [crmSearch, crmStage, crmPackage]);
   useEffect(() => { loadStats(); }, []);
+  useEffect(() => { loadCrm(); }, [loadCrm]);
   useEffect(() => { if (packageTab) api('/api/admin/packages').then(d => setPackages(d.packages)).catch(() => setPackages(null)); }, [packageTab]);
   if (error) return <Panel eyebrow="Admin" title="Access blocked"><p className="muted">{error}</p></Panel>;
   if (!stats) return <Panel eyebrow="Admin" title="Loading control room"><div className="skeletonCard"><div className="skeleton skeletonLine" /><div className="skeleton skeletonLine short" /><div className="skeleton skeletonBlock" /></div></Panel>;
@@ -1704,6 +1801,23 @@ function AdminPanel() {
         <small>{player.total_km} km</small>
         <small>{player.total_runs} runs</small>
       </div>)}</div>
+    </Panel>
+    <Panel eyebrow="CRM" title="Player command desk">
+      <div className="crmToolbar">
+        <label><Search size={14} /><input value={crmSearch} onChange={e => setCrmSearch(e.target.value)} placeholder="Search name, email, code..." /></label>
+        <select value={crmStage} onChange={e => setCrmStage(e.target.value)}><option value="all">All stages</option>{(crm.stages || []).map(stage => <option key={stage} value={stage}>{stage}</option>)}</select>
+        <select value={crmPackage} onChange={e => setCrmPackage(e.target.value)}><option value="all">All packages</option>{(crm.packages || []).map(pkg => <option key={pkg.id} value={pkg.id}>{pkg.name}</option>)}</select>
+      </div>
+      <div className="crmGrid">
+        <div className="crmList">
+          {(crm.players || []).map(player => <button key={player.id} className={`crmPlayer${selectedPlayer?.id === player.id ? ' active' : ''}`} onClick={() => setSelectedPlayer(player)} type="button">
+            <span className="rowAvatar">{(player.display_name || player.name || '?')[0].toUpperCase()}</span>
+            <span><strong>{player.display_name || player.name}</strong><small>{player.email}</small><em>{player.lifecycle_stage} &middot; {player.package || 'No package'}</em></span>
+            <Chip tone={player.is_admin ? 'warm' : 'quiet'}>{player.is_admin ? 'Admin' : `Lvl ${player.level}`}</Chip>
+          </button>)}
+        </div>
+        <AdminPlayerEditor player={selectedPlayer || (crm.players || [])[0]} packages={crm.packages || []} stages={crm.stages || []} onSaved={(player) => { setSelectedPlayer(player); loadCrm(); loadStats(); }} />
+      </div>
     </Panel>
     <Panel eyebrow="Regions" title="Shard performance">
       <div className="adminRegionList">{filteredRegions.map(region => <div key={region.id} className="regionPerfRow">

@@ -228,10 +228,14 @@ class StravaController extends Controller
 
             // Process game mechanics
             if ($profile) {
+                $oldLevel = (int) ($profile->level ?? 1);
                 $profile->increment('total_runs');
                 $profile->increment('xp', $xp);
                 $profile->total_km = round((float) $profile->total_km + $normalized['distance_km'], 2);
                 $profile->level = max(1, (int) floor(sqrt(($profile->xp ?? 0) / 500)) + 1);
+                if ($profile->level > $oldLevel) {
+                    $profile->skill_points = ((int) ($profile->skill_points ?? 0)) + ($profile->level - $oldLevel);
+                }
                 $profile->save();
             }
 

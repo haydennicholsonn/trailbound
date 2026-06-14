@@ -92,9 +92,13 @@ class WorldController extends Controller
 
         $profile = $user->profile;
         $profile->increment('total_runs');
+        $oldLevel = (int) ($profile->level ?? 1);
         $profile->increment('xp', $xp);
         $profile->total_km = round(((float) $profile->total_km) + (float) $data['distance_km'], 2);
         $profile->level = max(1, (int) floor(sqrt($profile->xp / 500)) + 1);
+        if ($profile->level > $oldLevel) {
+            $profile->skill_points = ((int) ($profile->skill_points ?? 0)) + ($profile->level - $oldLevel);
+        }
         $profile->save();
 
         $progress = UserRegionProgress::query()->firstOrCreate(

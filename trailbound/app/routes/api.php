@@ -86,6 +86,9 @@ Route::post('/notifications/read-all', [NotificationController::class, 'readAll'
 Route::get('/notifications/preferences', [NotificationController::class, 'preferences']);
 Route::patch('/notifications/preferences', [NotificationController::class, 'updatePreferences']);
 Route::get('/admin/stats', [AdminController::class, 'stats']);
+Route::get('/admin/players', [AdminController::class, 'players']);
+Route::patch('/admin/players/{playerId}', [AdminController::class, 'updatePlayer']);
+Route::post('/admin/players/{playerId}/tears', [AdminController::class, 'adjustTears']);
 
 Route::get('/wallet', [WalletController::class, 'balance']);
 Route::post('/wallet/top-up', [WalletController::class, 'topUp']);
@@ -94,6 +97,7 @@ Route::post('/shop/{shopItemId}/buy', [ShopController::class, 'buy']);
 Route::get('/inventory', [InventoryController::class, 'index']);
 Route::get('/skills/tree', [SkillController::class, 'tree']);
 Route::post('/skills/{nodeId}/unlock', [SkillController::class, 'unlock']);
+Route::post('/skills/respec', [SkillController::class, 'respec']);
 Route::get('/challenges/official', [ChallengeController::class, 'official']);
 Route::get('/challenges/friends', [ChallengeController::class, 'friendChallenges']);
 Route::post('/challenges', [ChallengeController::class, 'create']);

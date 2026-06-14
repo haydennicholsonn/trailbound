@@ -360,6 +360,7 @@ class AuthController extends Controller
                 'total_km' => $user->profile?->total_km ?? 0,
                 'runs' => $user->profile?->total_runs ?? 0,
                 'tears' => $user->profile?->tears ?? 0,
+                'skill_points' => $user->profile?->skill_points ?? 0,
             ],
             'package' => $package ? [
                 'id' => $package->id,

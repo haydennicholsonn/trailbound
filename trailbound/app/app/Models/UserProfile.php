@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['user_id', 'display_name', 'friend_code', 'referred_by_user_id', 'home_area', 'starting_region_id', 'runner_type', 'weekly_goal_km', 'privacy_level', 'level', 'xp', 'total_km', 'total_runs', 'avatar_path', 'background_path', 'bio', 'package_id', 'tutorial_completed_at', 'mobile_menu_side', 'notification_preferences'])]
+#[Fillable(['user_id', 'display_name', 'friend_code', 'referred_by_user_id', 'home_area', 'starting_region_id', 'runner_type', 'weekly_goal_km', 'privacy_level', 'level', 'xp', 'total_km', 'total_runs', 'avatar_path', 'background_path', 'bio', 'package_id', 'tutorial_completed_at', 'mobile_menu_side', 'notification_preferences', 'skill_points', 'last_respec_at', 'respec_count', 'admin_notes', 'lifecycle_stage'])]
 class UserProfile extends Model
 {
     protected function casts(): array
@@ -14,6 +14,7 @@ class UserProfile extends Model
         return [
             'tutorial_completed_at' => 'datetime',
             'notification_preferences' => 'array',
+            'last_respec_at' => 'datetime',
         ];
     }
 
