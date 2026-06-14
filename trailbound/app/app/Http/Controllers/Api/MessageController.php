@@ -45,6 +45,9 @@ class MessageController extends Controller
         if (! $user || ! $this->isParticipant($conversationId, $user->id)) {
             return response()->json(['message' => 'Conversation not found.'], 404);
         }
+        if ($this->restricted($user)) {
+            return response()->json(['message' => 'Your account is currently restricted from messaging.'], 403);
+        }
 
         ConversationParticipant::query()
             ->where('conversation_id', $conversationId)
@@ -230,5 +233,10 @@ class MessageController extends Controller
             ->where('friend_id', $b)
             ->where('status', 'accepted')
             ->exists();
+    }
+
+    private function restricted(User $user): bool
+    {
+        return (bool) $user->profile?->banned_at || ($user->profile?->timeout_until && $user->profile->timeout_until->isFuture());
     }
 }

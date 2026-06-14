@@ -119,7 +119,12 @@ class AuthController extends Controller
             return response()->json(['message' => 'Invalid email or password.'], 422);
         }
 
-        return $this->respondWithToken($user->load(['profile', 'regionProgress.region', 'taskStates.task.region']));
+        $user->load(['profile', 'regionProgress.region', 'taskStates.task.region']);
+        if ($this->restricted($user)) {
+            return response()->json(['message' => 'This account is currently restricted. Contact support if this looks wrong.'], 403);
+        }
+
+        return $this->respondWithToken($user);
     }
 
     public function logout(): JsonResponse
@@ -243,7 +248,12 @@ class AuthController extends Controller
             );
         }
 
-        return $this->respondWithToken($user->fresh(['profile', 'regionProgress.region', 'taskStates.task.region']))
+        $user = $user->fresh(['profile', 'regionProgress.region', 'taskStates.task.region']);
+        if ($this->restricted($user)) {
+            return redirect('/app/?auth=restricted');
+        }
+
+        return $this->respondWithToken($user)
             ->withHeaders(['Location' => '/app/'])
             ->setStatusCode(302);
     }
@@ -338,6 +348,11 @@ class AuthController extends Controller
             'token' => $token,
             'user' => $this->userPayload($user),
         ])->withCookie(Cookie::create('trailbound_token', $token, time() + (60 * 60 * 24 * 30), '/', null, false, true, false, 'Lax'));
+    }
+
+    private function restricted(User $user): bool
+    {
+        return (bool) $user->profile?->banned_at || ($user->profile?->timeout_until && $user->profile->timeout_until->isFuture());
     }
 
     private function userPayload(User $user): array

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityEvent;
 use App\Models\Challenge;
 use App\Models\Item;
+use App\Models\MarketListing;
+use App\Models\MarketSale;
 use App\Models\Package;
 use App\Models\Region;
 use App\Models\RunActivity;
@@ -36,7 +38,7 @@ class AdminController extends Controller
             'regions' => Region::query()->count(),
             'quests' => Task::query()->count(),
             'completed_quests' => UserTask::query()->where('status', 'complete')->count(),
-            'active_24h' => ActivityEvent::query()->where('created_at', '>=', now()->subDay())->distinct('user_id')->count('user_id'),
+            'active_24h' => DB::table('activity_events')->where('created_at', '>=', now()->subDay())->distinct()->count('user_id'),
             'total_tears_earned' => (int) DB::table('wallet_transactions')->where('type', 'earned')->sum('amount'),
             'total_tears_spent' => (int) DB::table('wallet_transactions')->where('type', 'spent')->sum('amount'),
             'items_in_wild' => UserItem::query()->count(),
@@ -44,6 +46,9 @@ class AdminController extends Controller
             'packages' => Package::query()->count(),
             'active_challenges' => Challenge::query()->where('status', 'active')->count(),
             'referrals' => DB::table('user_profiles')->whereNotNull('referred_by_user_id')->count(),
+            'active_market_listings' => MarketListing::query()->where('status', 'active')->count(),
+            'market_sales' => MarketSale::query()->count(),
+            'market_volume_tears' => (int) MarketSale::query()->sum('price_tears'),
         ];
 
         $players = User::query()
@@ -70,8 +75,11 @@ class AdminController extends Controller
                 'is_admin' => (bool) $player->is_admin,
                 'lifecycle_stage' => $player->profile?->lifecycle_stage ?? 'new',
                 'admin_notes' => $player->profile?->admin_notes,
-                'joined_at' => $player->created_at,
-            ]);
+            'joined_at' => $player->created_at,
+            'timeout_until' => $player->profile?->timeout_until,
+            'banned_at' => $player->profile?->banned_at,
+            'ban_reason' => $player->profile?->ban_reason,
+        ]);
 
         $regions = Region::query()
             ->withCount(['tasks', 'runActivities'])
@@ -155,7 +163,33 @@ class AdminController extends Controller
             ->orderBy('type')
             ->get();
 
-        return response()->json(compact('totals', 'players', 'regions', 'quests', 'activity', 'referrals', 'recentReferrals', 'packageMix', 'challengeMix'));
+        $marketTrend = MarketSale::query()
+            ->select(DB::raw('DATE(sold_at) as day'), DB::raw('count(*) as sales'), DB::raw('sum(price_tears) as volume'))
+            ->where('sold_at', '>=', now()->subDays(21))
+            ->groupBy('day')
+            ->orderBy('day')
+            ->get();
+
+        $marketItems = Item::query()
+            ->withCount(['shopListings'])
+            ->orderBy('rarity')
+            ->get()
+            ->map(fn (Item $item) => [
+                'id' => $item->id,
+                'key' => $item->key,
+                'name' => $item->name,
+                'icon' => $item->icon,
+                'rarity' => $item->rarity,
+                'type' => $item->type,
+                'category' => $item->category,
+                'value_tears' => $item->value_tears,
+                'in_wild' => UserItem::query()->where('item_id', $item->id)->sum('quantity'),
+                'active_listings' => MarketListing::query()->where('item_id', $item->id)->where('status', 'active')->count(),
+                'sales' => MarketSale::query()->where('item_id', $item->id)->count(),
+                'avg_sale' => round((float) MarketSale::query()->where('item_id', $item->id)->avg('price_tears'), 1),
+            ]);
+
+        return response()->json(compact('totals', 'players', 'regions', 'quests', 'activity', 'referrals', 'recentReferrals', 'packageMix', 'challengeMix', 'marketTrend', 'marketItems'));
     }
 
     public function players(Request $request): JsonResponse
@@ -258,6 +292,118 @@ class AdminController extends Controller
         ]);
     }
 
+    public function timeoutPlayer(Request $request, int $playerId): JsonResponse
+    {
+        $admin = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($admin)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $player = User::query()->with('profile')->find($playerId);
+        if (! $player || ! $player->profile) {
+            return response()->json(['message' => 'Player not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'minutes' => ['required', 'integer', 'min:1', 'max:43200'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $player->profile->update([
+            'timeout_until' => now()->addMinutes((int) $data['minutes']),
+            'moderation_note' => $data['note'] ?? 'Timed out by admin.',
+        ]);
+
+        return response()->json(['message' => 'Player timed out.', 'player' => $this->playerPayload($player->fresh('profile'))]);
+    }
+
+    public function banPlayer(Request $request, int $playerId): JsonResponse
+    {
+        $admin = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($admin)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $player = User::query()->with('profile')->find($playerId);
+        if (! $player || ! $player->profile) {
+            return response()->json(['message' => 'Player not found.'], 404);
+        }
+
+        $data = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+        $player->profile->update(['banned_at' => now(), 'ban_reason' => $data['reason'] ?? 'Banned by admin.']);
+
+        return response()->json(['message' => 'Player banned.', 'player' => $this->playerPayload($player->fresh('profile'))]);
+    }
+
+    public function unbanPlayer(Request $request, int $playerId): JsonResponse
+    {
+        $admin = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($admin)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $player = User::query()->with('profile')->find($playerId);
+        if (! $player || ! $player->profile) {
+            return response()->json(['message' => 'Player not found.'], 404);
+        }
+
+        $player->profile->update(['banned_at' => null, 'ban_reason' => null, 'timeout_until' => null]);
+
+        return response()->json(['message' => 'Player restored.', 'player' => $this->playerPayload($player->fresh('profile'))]);
+    }
+
+    public function items(Request $request): JsonResponse
+    {
+        $admin = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($admin)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        return response()->json([
+            'items' => Item::query()->latest()->get(),
+            'rarities' => ['common', 'magic', 'rare', 'epic', 'legendary'],
+            'types' => ['cosmetic', 'room', 'profile', 'companion', 'consumable'],
+            'categories' => ['companion', 'head', 'cloak', 'boots', 'aura', 'room_background', 'room_floor', 'room_chair', 'room_bed', 'room_decor', 'frame', 'general'],
+        ]);
+    }
+
+    public function storeItem(Request $request): JsonResponse
+    {
+        $admin = Jwt::userFromRequest($request);
+        if (! $this->isAdmin($admin)) {
+            return response()->json(['message' => 'Admin access required.'], 403);
+        }
+
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:120'],
+            'key' => ['nullable', 'string', 'max:120', 'unique:items,key'],
+            'icon' => ['nullable', 'string', 'max:40'],
+            'rarity' => ['required', 'in:common,magic,rare,epic,legendary'],
+            'description' => ['nullable', 'string', 'max:1000'],
+            'type' => ['required', 'string', 'max:40'],
+            'category' => ['required', 'string', 'max:60'],
+            'value_tears' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            'stackable' => ['nullable', 'boolean'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $item = Item::query()->create([
+            'key' => $data['key'] ?? str($data['name'])->slug()->toString(),
+            'name' => $data['name'],
+            'icon' => $data['icon'] ?? 'Gem',
+            'rarity' => $data['rarity'],
+            'description' => $data['description'] ?? null,
+            'type' => $data['type'],
+            'category' => $data['category'],
+            'value_tears' => $data['value_tears'] ?? 0,
+            'stackable' => $data['stackable'] ?? false,
+            'max_stack' => ($data['stackable'] ?? false) ? 99 : 1,
+            'is_active' => $data['is_active'] ?? true,
+        ]);
+
+        return response()->json(['message' => 'Item created.', 'item' => $item]);
+    }
+
     private function isAdmin(?User $user): bool
     {
         if (! $user) {
@@ -289,6 +435,10 @@ class AdminController extends Controller
             'lifecycle_stage' => $player->profile?->lifecycle_stage ?? 'new',
             'admin_notes' => $player->profile?->admin_notes,
             'joined_at' => $player->created_at,
+            'timeout_until' => $player->profile?->timeout_until,
+            'banned_at' => $player->profile?->banned_at,
+            'ban_reason' => $player->profile?->ban_reason,
+            'moderation_note' => $player->profile?->moderation_note,
         ];
     }
 }

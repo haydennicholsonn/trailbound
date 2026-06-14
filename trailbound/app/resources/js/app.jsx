@@ -5,7 +5,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../css/app.css';
 
-const nav = [['Dashboard', Gauge], ['Cape Town', Map], ['Progress', BarChart3], ['Tasks', Compass], ['Runs', Activity], ['Social', ActivitySquare], ['Messages', MessageCircle], ['Shop', ShoppingBag], ['Inventory', Gem], ['Skill Tree', Sword], ['Challenges', Trophy], ['Help', BookOpen], ['Profile', UserRound], ['Settings', Shield]];
+const nav = [['Dashboard', Gauge], ['Cape Town', Map], ['Progress', BarChart3], ['Tasks', Compass], ['Runs', Activity], ['Social', ActivitySquare], ['Messages', MessageCircle], ['Groups', Users], ['Shop', ShoppingBag], ['Market', Droplet], ['Inventory', Gem], ['Skill Tree', Sword], ['Challenges', Trophy], ['Help', BookOpen], ['Profile', UserRound], ['Settings', Shield]];
 const palettes = [
   { id: 'trailbound', label: 'Trailbound', swatch: ['#d9a566', '#7dd3a8'] },
   { id: 'blue', label: 'Blue', swatch: ['#60a5fa', '#67e8f9'] },
@@ -22,7 +22,7 @@ const runnerClasses = [
   { id: 'Wanderer', icon: Map, title: 'Wanderer', copy: 'Exploration and discovery focused.', play: 'For runners who want to reveal every shard.', strengths: ['Region unlocks', 'Route variety', 'Discovery XP'], start: 'Exploration branch' },
   { id: 'Strategist', icon: Sword, title: 'Strategist', copy: 'Challenge and reward optimization.', play: 'For players who want efficient XP, Tears, and quests.', strengths: ['Rewards', 'Challenges', 'Skill planning'], start: 'Tactics branch' },
 ];
-const iconMap = { Activity, BarChart3, BookOpen, Compass, Eye: EyeIcon, Gauge, Map, MapPin, MessageCircle, Navigation, RadioTower, Shield, Sparkles, Star, Timer, Trophy, Users, Zap };
+const iconMap = { Activity, BarChart3, BookOpen, Camera, Compass, Droplet, Eye: EyeIcon, Gauge, Gem, Map, MapPin, MessageCircle, Navigation, Package: PackageIcon, RadioTower, Shield, ShoppingBag, Sparkles, Star, Sword, Timer, Trophy, Users, Zap };
 
 async function api(path, options = {}) {
   let body = options.body; let hdrs = { Accept: 'application/json', ...(options.headers || {}) };
@@ -1158,20 +1158,103 @@ function ItemCard({ item, ownedQuantity, compact = false, onClick }) {
 
 function InventoryPanel({ refreshKey }) {
   const [items, setItems] = useState(null);
+  const [room, setRoom] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const load = useCallback(() => { setLoading(true); api('/api/inventory').then(d => setItems(d.items)).catch(() => setItems([])).finally(() => setLoading(false)); }, []);
+  const [message, setMessage] = useState('');
+  const load = useCallback(() => { setLoading(true); api('/api/inventory').then(d => { setItems(d.items); setRoom(d.room); }).catch(() => setItems([])).finally(() => setLoading(false)); }, []);
   useEffect(() => { load(); }, [refreshKey, load]);
+  const equip = async (item) => { try { const d = await api(`/api/inventory/${item.id}/equip`, { method: 'POST' }); setMessage(d.message); load(); } catch (err) { setMessage(err.message); } };
   if (loading) return <Panel eyebrow="Carried gear" title="Inventory"><div className="skeletonCard"><div className="skeleton skeletonLine" /><div className="skeleton skeletonLine short" /></div></Panel>;
   const filtered = (items || []).filter(i => filter === 'all' || i.rarity === filter || i.type === filter);
   const rarities = ['common', 'magic', 'rare', 'epic', 'legendary'];
+  const equipped = (items || []).filter(i => i.equipped);
+  const zorrin = (items || []).find(i => i.category === 'companion');
+  const roomItems = equipped.filter(i => String(i.category).startsWith('room_'));
   return <div className="grid">
+    <Panel eyebrow="Room" title="Zorrin's corner">
+      {message && <p className="notice">{message}</p>}
+      <div className={`zorrinRoom bg-${room?.background_item_id || 'base'}`}>
+        <div className="roomGlow" />
+        <div className="roomShelf">{roomItems.map(item => <span key={item.id} className={`roomItem ${item.rarity}`}>{React.createElement(iconMap[item.icon] || Gem, { size: 17 })}<small>{item.name}</small></span>)}</div>
+        <div className={`zorrinAvatar ${zorrin?.equipped ? 'awake' : ''}`}>
+          <Eye small phrase={zorrin?.equipped ? 'Ready.' : ''} />
+          <strong>{zorrin?.equipped ? 'Zorrin equipped' : 'Equip Zorrin'}</strong>
+        </div>
+      </div>
+      <p className="muted">Select companions, cosmetics, and room items below to equip them. Room backgrounds, beds, chairs, and decor change this space.</p>
+    </Panel>
+    <LootBoxPanel onOpened={load} />
     <Panel eyebrow={`${items?.length || 0} items`} title="Your Inventory">
       <div className="inventoryFilters">
         <button className={filter === 'all' ? 'primary' : 'ghost'} onClick={() => setFilter('all')}>All</button>
         {rarities.map(r => <button key={r} className={`${filter === r ? 'primary' : 'ghost'} rarityBtn`} style={{ '--rarity-color': r === 'common' ? 'var(--muted)' : r === 'magic' ? '#60a5fa' : r === 'rare' ? '#a78bfa' : r === 'epic' ? '#f59e0b' : '#fb7185' }} onClick={() => setFilter(r)}>{r}</button>)}
       </div>
-      {(filtered || []).length === 0 ? <div className="emptyState"><Gem size={28} /><p>{items?.length ? 'No items match this filter.' : 'Your inventory is empty. Earn items from quests, challenges, or the shop.'}</p></div> : <div className="inventoryGrid">{filtered.map(item => <ItemCard key={item.id} item={item} ownedQuantity={item.quantity} />)}</div>}
+      {(filtered || []).length === 0 ? <div className="emptyState"><Gem size={28} /><p>{items?.length ? 'No items match this filter.' : 'Your inventory is empty. Earn items from quests, challenges, or the shop.'}</p></div> : <div className="inventoryGrid">{filtered.map(item => <div key={item.id} className={`inventoryEquipWrap ${item.equipped ? 'equipped' : ''}`}><ItemCard item={item} ownedQuantity={item.quantity} onClick={() => equip(item)} /><span>{item.market_listed ? 'Listed' : item.equipped ? 'Equipped' : 'Tap to equip'}</span></div>)}</div>}
+    </Panel>
+  </div>;
+}
+
+function LootBoxPanel({ onOpened }) {
+  const [box, setBox] = useState(null);
+  const [opening, setOpening] = useState(false);
+  const [reel, setReel] = useState([]);
+  const [clientSeed, setClientSeed] = useState(() => `trailbound-${Math.random().toString(36).slice(2, 10)}`);
+  const [message, setMessage] = useState('');
+  const load = useCallback(() => api('/api/loot/daily').then(setBox).catch(() => setBox(null)), []);
+  useEffect(() => { load(); }, [load]);
+  const open = async () => {
+    setOpening(true); setMessage('');
+    try {
+      const d = await api('/api/loot/daily/open', { method: 'POST', body: { client_seed: clientSeed } });
+      setReel(d.reel || []);
+      setTimeout(() => { setMessage(d.message); setBox({ ...box, can_open: false, opened_today: d.open, latest: d.open }); setOpening(false); onOpened?.(); }, 1800);
+    } catch (err) { setOpening(false); setMessage(err.message); }
+  };
+  const latest = box?.opened_today || box?.latest;
+  return <Panel eyebrow="Daily box" title="Shard case">
+    {message && <p className="notice">{message}</p>}
+    <div className={`lootCase ${opening ? 'opening' : ''}`}>
+      <div className="lootNeedle" />
+      <div className="lootReel">{(reel.length ? reel : [{ name: 'Tears', icon: 'Droplet', rarity: 'magic' }, { name: 'Item', icon: 'Gem', rarity: 'rare' }, { name: 'Room', icon: 'Package', rarity: 'epic' }, { name: 'Skill point', icon: 'Sword', rarity: 'legendary' }]).map((item, i) => <span key={`${item.name}-${i}`} className={item.rarity}>{React.createElement(iconMap[item.icon] || Gem, { size: 20 })}<small>{item.name}</small></span>)}</div>
+    </div>
+    <div className="split">
+      <label>Client seed<input value={clientSeed} onChange={e => setClientSeed(e.target.value)} /></label>
+      <button className="primary" onClick={open} disabled={!box?.can_open || opening}>{opening ? 'Opening...' : box?.can_open ? 'Open free box' : 'Opened today'}</button>
+    </div>
+    {latest && <div className="fairnessBox"><strong>Provably fair receipt</strong><small>Server hash: {latest.server_seed_hash}</small><small>Roll hash: {latest.roll_hash}</small><small>Server seed revealed: {latest.server_seed}</small></div>}
+  </Panel>;
+}
+
+function MarketPanel({ refreshKey, onBalanceUpdate }) {
+  const [market, setMarket] = useState(null);
+  const [price, setPrice] = useState(25);
+  const [selectedItem, setSelectedItem] = useState('');
+  const [message, setMessage] = useState('');
+  const load = useCallback(() => api('/api/market').then(d => { setMarket(d); onBalanceUpdate?.(d.balance); }).catch(err => setMessage(err.message)), [onBalanceUpdate]);
+  useEffect(() => { load(); }, [refreshKey, load]);
+  const list = async () => { try { await api('/api/market/listings', { method: 'POST', body: { user_item_id: selectedItem, price_tears: Number(price) } }); setMessage('Listing created.'); setSelectedItem(''); load(); } catch (err) { setMessage(err.message); } };
+  const buy = async (id) => { try { const d = await api(`/api/market/listings/${id}/buy`, { method: 'POST' }); setMessage(d.message); onBalanceUpdate?.(d.balance); load(); } catch (err) { setMessage(err.message); } };
+  const cancel = async (id) => { await api(`/api/market/listings/${id}/cancel`, { method: 'POST' }); load(); };
+  if (!market) return <Panel eyebrow="Market" title="Loading exchange"><div className="skeletonCard"><div className="skeleton skeletonLine" /><div className="skeleton skeletonLine short" /></div></Panel>;
+  return <div className="marketPage">
+    {message && <p className="notice">{message}</p>}
+    <Panel eyebrow={`${market.balance} Tears`} title="Community Market">
+      <div className="marketToolbar">
+        <select value={selectedItem} onChange={e => setSelectedItem(e.target.value)}><option value="">Choose an item to sell...</option>{market.my_items.map(item => <option key={item.id} value={item.id}>{item.name} ({item.rarity})</option>)}</select>
+        <input type="number" min="1" value={price} onChange={e => setPrice(e.target.value)} />
+        <button className="primary" onClick={list} disabled={!selectedItem}>List item</button>
+      </div>
+      <div className="marketListings">{market.listings.map(listing => <article key={listing.id} className={`marketListing ${listing.item.rarity}`}>
+        <div className="shopItemIcon">{React.createElement(iconMap[listing.item.icon] || Gem, { size: 28 })}</div>
+        <span><strong>{listing.item.name}</strong><small>{listing.item.description}</small><em>Seller: {listing.seller}</em></span>
+        <b><Droplet size={14} />{listing.price_tears}</b>
+        {listing.mine ? <button className="ghost" onClick={() => cancel(listing.id)}>Cancel</button> : <button className="primary" onClick={() => buy(listing.id)}>Buy</button>}
+      </article>)}</div>
+    </Panel>
+    <Panel eyebrow="Trends" title="Market activity">
+      <div className="marketTrend">{(market.sales_trend || []).map(day => <span key={day.day} style={{ height: `${Math.max(8, Math.min(100, Number(day.volume || 0)))}px` }} title={`${day.day}: ${day.volume || 0} Tears`} />)}</div>
+      <div className="adminMiniList">{(market.recent_sales || []).map((sale, i) => <div key={i} className="adminMiniRow"><span><b>{sale.item}</b><small>{new Date(sale.sold_at).toLocaleString()}</small></span><Chip><Droplet size={11} />{sale.price_tears}</Chip></div>)}</div>
     </Panel>
   </div>;
 }
@@ -1526,6 +1609,9 @@ function HelpPanel({ onReplayTutorial }) {
     ['Quests', 'Quests are region objectives unlocked by location, distance, consistency, and task chains.'],
     ['Classes', 'Runner classes set your identity and future skill-tree direction.'],
     ['Social', 'The Social tab combines your feed, friends, reactions, comments, challenges, and bragging moments.'],
+    ['Daily box fairness', 'The free daily shard case uses a server seed, your client seed, a nonce, and a SHA-256 roll hash. After opening, the server seed is revealed so you can verify the exact roll was not changed.'],
+    ['Market', 'The community market lets players list eligible items for Tears, buy other players items, and track recent market sales. Zorrin cannot be sold.'],
+    ['Groups', 'Public and private groups include public chat rooms, owner/admin controls, member removal, group blocking, and user-level blocking.'],
     ['Friend codes', 'Friend codes let people add you and can credit referrals during signup.'],
     ['Packages', 'Free is active now. Paid packages are admin-managed and future-ready for payment integration.'],
   ];
@@ -1535,6 +1621,51 @@ function HelpPanel({ onReplayTutorial }) {
       <button className="primary" onClick={onReplayTutorial}><Sparkles size={15} />Replay welcome tour</button>
     </Panel>
     <div className="helpGrid">{topics.map(([title, body]) => <article key={title} className="helpTopic"><strong>{title}</strong><p>{body}</p></article>)}</div>
+  </div>;
+}
+
+function GroupsPanel({ refreshKey }) {
+  const [groups, setGroups] = useState([]);
+  const [activeGroup, setActiveGroup] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [form, setForm] = useState({ name: '', description: '', visibility: 'public' });
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [body, setBody] = useState('');
+  const [message, setMessage] = useState('');
+  const load = useCallback(() => api('/api/groups').then(d => { setGroups(d.groups || []); if (!activeGroup && d.groups?.[0]) setActiveGroup(d.groups[0].id); }).catch(err => setMessage(err.message)), [activeGroup]);
+  const loadDetail = useCallback(() => { if (activeGroup) api(`/api/groups/${activeGroup}`).then(setDetail).catch(err => setMessage(err.message)); }, [activeGroup]);
+  useEffect(() => { load(); }, [refreshKey, load]);
+  useEffect(() => { loadDetail(); const h = (e) => { if (e.detail?.type === 'groups.updated') loadDetail(); }; window.addEventListener('trailbound:realtime', h); return () => window.removeEventListener('trailbound:realtime', h); }, [loadDetail]);
+  const create = async (e) => { e.preventDefault(); try { const d = await api('/api/groups', { method: 'POST', body: form }); setMessage(d.message); setForm({ name: '', description: '', visibility: 'public' }); setActiveGroup(d.group.id); load(); } catch (err) { setMessage(err.message); } };
+  const join = async (id) => { await api(`/api/groups/${id}/join`, { method: 'POST' }); setActiveGroup(id); load(); loadDetail(); };
+  const send = async (e) => { e.preventDefault(); if (!body.trim() || !activeGroup) return; const d = await api(`/api/groups/${activeGroup}/messages`, { method: 'POST', body: { body } }); setDetail(current => current ? { ...current, messages: [...(current.messages || []), d.message] } : current); setBody(''); };
+  const addMember = async () => { if (!inviteEmail.trim()) return; await api(`/api/groups/${activeGroup}/members`, { method: 'POST', body: { email: inviteEmail } }); setInviteEmail(''); loadDetail(); };
+  const removeMember = async (id) => { await api(`/api/groups/${activeGroup}/members/${id}`, { method: 'DELETE' }); loadDetail(); };
+  const blockMember = async (id) => { await api(`/api/groups/${activeGroup}/members/${id}/block`, { method: 'POST' }); loadDetail(); };
+  const group = detail?.group;
+  return <div className="groupsPage">
+    {message && <p className="notice">{message}</p>}
+    <Panel eyebrow="Rooms" title="Trail groups">
+      <div className="groupList">{groups.map(g => <button key={g.id} className={activeGroup === g.id ? 'active' : ''} onClick={() => setActiveGroup(g.id)}>
+        <span className="rowAvatar">{g.name[0]}</span><span><strong>{g.name}</strong><small>{g.visibility} · {g.member_count} members</small><em>{g.last_message || g.description || 'No messages yet'}</em></span>{!g.joined && g.visibility === 'public' && <Chip tone="good">Joinable</Chip>}
+      </button>)}</div>
+      <form className="form groupCreate" onSubmit={create}>
+        <label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Cape Dawn Crew" required /></label>
+        <label>Description<input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Easy morning routes and shard quests" /></label>
+        <div className="split"><select value={form.visibility} onChange={e => setForm({ ...form, visibility: e.target.value })}><option value="public">Public</option><option value="private">Private</option></select><button className="primary">Create group</button></div>
+      </form>
+    </Panel>
+    <Panel eyebrow={group?.visibility || 'Group'} title={group?.name || 'Select a group'}>
+      {group && !group.joined && group.visibility === 'public' ? <button className="primary" onClick={() => join(group.id)}>Join public room</button> : null}
+      {group ? <div className="groupChat">
+        <div className="groupMessages">{(detail.messages || []).map(m => <div key={m.id} className="groupMessage"><span className="rowAvatar">{m.user.name[0]}</span><div><strong>{m.user.name}</strong><p>{m.body}</p><small>{new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small></div></div>)}</div>
+        {group.joined && <form className="messageComposer" onSubmit={send}><input value={body} onChange={e => setBody(e.target.value)} placeholder="Message the room..." /><button className="primary">Send</button></form>}
+      </div> : <div className="emptyState"><Users size={28} /><p>Select or create a public room.</p></div>}
+    </Panel>
+    {group?.can_moderate && <Panel eyebrow="Group admin" title="Member controls">
+      <div className="marketToolbar"><input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="user@example.com" /><button className="primary" onClick={addMember}>Add member</button></div>
+      <div className="adminMiniList">{(detail.members || []).map(member => <div key={member.id} className="adminMiniRow"><span><b>{member.name}</b><small>{member.role} · {member.status}</small></span><div className="actions"><button className="ghost mini" onClick={() => removeMember(member.id)} disabled={member.role === 'owner'}>Remove</button><button className="ghost mini" onClick={() => blockMember(member.id)} disabled={member.role === 'owner'}>Block</button></div></div>)}</div>
+    </Panel>}
   </div>;
 }
 
@@ -1647,6 +1778,7 @@ function NotificationPreferencesPanel({ onSaved }) {
 function AdminPlayerEditor({ player, packages, stages, onSaved }) {
   const [draft, setDraft] = useState(null);
   const [tearAmount, setTearAmount] = useState(10);
+  const [timeoutMinutes, setTimeoutMinutes] = useState(60);
 
   useEffect(() => {
     setDraft(player ? {
@@ -1673,6 +1805,19 @@ function AdminPlayerEditor({ player, packages, stages, onSaved }) {
     onSaved?.(d.player);
     setTearAmount(10);
   };
+  const timeout = async () => {
+    const d = await api(`/api/admin/players/${player.id}/timeout`, { method: 'POST', body: { minutes: Number(timeoutMinutes), note: 'Admin timeout from CRM' } });
+    onSaved?.(d.player);
+  };
+  const ban = async () => {
+    if (!confirm(`Ban ${player.display_name || player.name}?`)) return;
+    const d = await api(`/api/admin/players/${player.id}/ban`, { method: 'POST', body: { reason: 'Admin ban from CRM' } });
+    onSaved?.(d.player);
+  };
+  const unban = async () => {
+    const d = await api(`/api/admin/players/${player.id}/unban`, { method: 'POST' });
+    onSaved?.(d.player);
+  };
 
   return <div className="crmEditor">
     <div className="crmHero">
@@ -1684,6 +1829,7 @@ function AdminPlayerEditor({ player, packages, stages, onSaved }) {
       <div><b>{player.tears}</b><span>Tears</span></div>
       <div><b>{player.skill_points}</b><span>Skill points</span></div>
     </div>
+    {(player.banned_at || player.timeout_until) && <div className="moderationBanner"><Shield size={16} /><span>{player.banned_at ? `Banned: ${player.ban_reason || 'No reason'}` : `Timed out until ${new Date(player.timeout_until).toLocaleString()}`}</span></div>}
     <label className="checkLine"><input type="checkbox" checked={draft.is_admin} onChange={e => setDraft({ ...draft, is_admin: e.target.checked })} /> Full admin access</label>
     <div className="split">
       <label>Package<select value={draft.package_id} onChange={e => setDraft({ ...draft, package_id: e.target.value })}><option value="">No package</option>{packages.map(pkg => <option key={pkg.id} value={pkg.id}>{pkg.name}</option>)}</select></label>
@@ -1695,7 +1841,30 @@ function AdminPlayerEditor({ player, packages, stages, onSaved }) {
       <button className="primary" onClick={save} type="button">Save player</button>
       <label className="tearAdjust"><Droplet size={14} /><input type="number" value={tearAmount} onChange={e => setTearAmount(e.target.value)} /><button className="ghost" onClick={adjustTears} type="button">Adjust Tears</button></label>
     </div>
+    <div className="moderationControls">
+      <label>Timeout minutes<input type="number" min="1" max="43200" value={timeoutMinutes} onChange={e => setTimeoutMinutes(e.target.value)} /></label>
+      <button className="ghost" onClick={timeout} type="button">Timeout</button>
+      <button className="ghost" onClick={ban} type="button">Ban</button>
+      <button className="ghost" onClick={unban} type="button">Clear restrictions</button>
+    </div>
   </div>;
+}
+
+function AdminItemCreator({ onCreated }) {
+  const [form, setForm] = useState({ name: '', icon: 'Gem', rarity: 'common', type: 'cosmetic', category: 'general', value_tears: 20, description: '' });
+  const [message, setMessage] = useState('');
+  const submit = async (e) => {
+    e.preventDefault();
+    try { const d = await api('/api/admin/items', { method: 'POST', body: form }); setMessage(d.message); setForm({ name: '', icon: 'Gem', rarity: 'common', type: 'cosmetic', category: 'general', value_tears: 20, description: '' }); onCreated?.(); } catch (err) { setMessage(err.message); }
+  };
+  return <form className="form adminItemForm" onSubmit={submit}>
+    {message && <p className="notice">{message}</p>}
+    <div className="split"><label>Name<input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} required /></label><label>Icon<input value={form.icon} onChange={e => setForm({ ...form, icon: e.target.value })} /></label></div>
+    <div className="split"><label>Rarity<select value={form.rarity} onChange={e => setForm({ ...form, rarity: e.target.value })}>{['common', 'magic', 'rare', 'epic', 'legendary'].map(v => <option key={v}>{v}</option>)}</select></label><label>Type<select value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}>{['cosmetic', 'room', 'profile', 'companion', 'consumable'].map(v => <option key={v}>{v}</option>)}</select></label></div>
+    <div className="split"><label>Category<input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} /></label><label>Value Tears<input type="number" min="0" value={form.value_tears} onChange={e => setForm({ ...form, value_tears: Number(e.target.value) })} /></label></div>
+    <label>Description<textarea rows={3} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></label>
+    <button className="primary">Create item</button>
+  </form>;
 }
 
 function AdminPanel() {
@@ -1773,7 +1942,22 @@ function AdminPanel() {
           <strong>{stats.totals.referrals ?? 0}</strong>
           <span>Referral links</span>
         </div>
+        <div className="adminEconStat">
+          <strong>{stats.totals.active_market_listings ?? 0}</strong>
+          <span>Active listings</span>
+        </div>
+        <div className="adminEconStat">
+          <strong>{stats.totals.market_volume_tears ?? 0}</strong>
+          <span>Market volume</span>
+        </div>
       </div>
+    </Panel>
+    <Panel eyebrow="Market" title="Exchange analytics">
+      <div className="marketTrend adminTrend">{(stats.marketTrend || []).map(day => <span key={day.day} style={{ height: `${Math.max(10, Math.min(120, Number(day.volume || 0)))}px` }} title={`${day.day}: ${day.volume || 0} Tears`} />)}</div>
+      <div className="adminMiniList">{(stats.marketItems || []).slice(0, 8).map(item => <div key={item.id} className="adminMiniRow"><span><b>{item.name}</b><small>{item.rarity} · {item.in_wild} in wild · {item.active_listings} listings</small></span><Chip>{item.sales ? `${item.sales} sales` : 'No sales'}</Chip></div>)}</div>
+    </Panel>
+    <Panel eyebrow="Items" title="Create game item">
+      <AdminItemCreator onCreated={loadStats} />
     </Panel>
     <Panel eyebrow="Growth" title="Referral signal">
       <div className="adminSplitList">
@@ -2288,8 +2472,10 @@ function AppShell({ initialUser }) {
 
         {active === 'Social' && <SocialPanel user={user} onlineIds={onlineIds} refreshKey={refreshKey} onOpenRun={openRunDashboard} setMessage={setMessage} friends={friends} />}
         {active === 'Messages' && <MessagesPanel friends={friends} selectedFriendId={selectedMessageFriend} onHandled={() => setSelectedMessageFriend(null)} refreshKey={refreshKey} user={user} />}
+        {active === 'Groups' && <GroupsPanel refreshKey={refreshKey} />}
 
         {active === 'Shop' && <ShopPanel refreshKey={refreshKey} onBalanceUpdate={setTearsBalance} user={user} />}
+        {active === 'Market' && <MarketPanel refreshKey={refreshKey} onBalanceUpdate={setTearsBalance} />}
         {active === 'Inventory' && <InventoryPanel refreshKey={refreshKey} />}
         {active === 'Skill Tree' && <SkillTreePanel refreshKey={refreshKey} />}
         {active === 'Challenges' && <ChallengesPanel refreshKey={refreshKey} friends={friends} user={user} />}
