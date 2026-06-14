@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
-#[Fillable(['key', 'name', 'biome', 'summary', 'difficulty', 'map_x', 'map_y', 'sort_order', 'start_keywords', 'polygon'])]
+#[Fillable(['key', 'name', 'real_name', 'biome', 'summary', 'facts', 'difficulty', 'map_x', 'map_y', 'sort_order', 'start_keywords', 'polygon'])]
 class Region extends Model
 {
     protected function casts(): array
@@ -15,6 +15,7 @@ class Region extends Model
         return [
             'start_keywords' => 'array',
             'polygon' => 'array',
+            'facts' => 'array',
         ];
     }
 

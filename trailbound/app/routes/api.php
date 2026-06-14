@@ -21,6 +21,12 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WorldController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/health', fn () => response()->json([
+    'ok' => true,
+    'app' => 'Trailbound',
+    'time' => now()->toIso8601String(),
+]));
+
 Route::post('/auth/register', [AuthController::class, 'register']);
 Route::post('/auth/login', [AuthController::class, 'login']);
 Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -45,10 +51,12 @@ Route::post('/strava/disconnect', [StravaController::class, 'disconnect']);
 
 Route::get('/friends', [FriendController::class, 'index']);
 Route::post('/friends/request', [FriendController::class, 'request']);
+Route::post('/friends/cancel', [FriendController::class, 'cancel']);
 Route::post('/friends/accept', [FriendController::class, 'accept']);
 Route::post('/friends/reject', [FriendController::class, 'reject']);
 Route::delete('/friends/{friendId}', [FriendController::class, 'remove']);
 Route::patch('/friends/{friendId}/nickname', [FriendController::class, 'updateNickname']);
+Route::patch('/friends/{friendId}/preference', [FriendController::class, 'updatePreference']);
 
 Route::get('/status', [StatusController::class, 'show']);
 Route::post('/status', [StatusController::class, 'store']);
@@ -73,6 +81,10 @@ Route::get('/messages/{conversationId}', [MessageController::class, 'show']);
 Route::post('/messages/{conversationId}', [MessageController::class, 'send']);
 
 Route::get('/notifications', [NotificationController::class, 'index']);
+Route::post('/notifications/{notificationId}/read', [NotificationController::class, 'read']);
+Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+Route::get('/notifications/preferences', [NotificationController::class, 'preferences']);
+Route::patch('/notifications/preferences', [NotificationController::class, 'updatePreferences']);
 Route::get('/admin/stats', [AdminController::class, 'stats']);
 
 Route::get('/wallet', [WalletController::class, 'balance']);

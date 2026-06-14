@@ -121,4 +121,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserBadge::class);
     }
+
+    public function referrals(): HasMany
+    {
+        return $this->hasMany(UserProfile::class, 'referred_by_user_id');
+    }
 }

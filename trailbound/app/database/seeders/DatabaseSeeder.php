@@ -198,6 +198,11 @@ class DatabaseSeeder extends Seeder
         foreach ($regions as $data) {
             $region = Region::query()->updateOrCreate(["key" => $data["key"]], [
                 "name" => $data["name"], "biome" => $data["biome"], "summary" => $data["summary"],
+                "real_name" => collect($data["start_keywords"])->take(8)->map(fn ($place) => ucwords($place))->implode(", "),
+                "facts" => [
+                    $data["summary"],
+                    "Trailbound quests in this shard use real Cape Town movement to reveal game progress.",
+                ],
                 "difficulty" => $data["difficulty"], "map_x" => $data["map_x"], "map_y" => $data["map_y"],
                 "sort_order" => $data["sort_order"], "start_keywords" => $data["start_keywords"],
                 "polygon" => $data["polygon"],

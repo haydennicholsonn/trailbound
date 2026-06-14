@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\ActivityEvent;
 use App\Models\Friend;
 use App\Models\FriendNickname;
+use App\Models\FriendPreference;
+use App\Models\TrailNotification;
 use App\Models\User;
 use App\Support\Jwt;
 use App\Support\Realtime;
@@ -37,10 +39,15 @@ class FriendController extends Controller
             ->where('user_id', $user->id)
             ->get()
             ->keyBy('friend_id');
+        $preferences = FriendPreference::query()
+            ->where('user_id', $user->id)
+            ->get()
+            ->keyBy('friend_id');
 
-        $result = $friends->map(function (Friend $f) use ($nicknames) {
+        $result = $friends->map(function (Friend $f) use ($nicknames, $preferences) {
             $friendUser = $f->friend;
             $nickname = $nicknames[$friendUser->id]->nickname ?? null;
+            $preference = $preferences[$friendUser->id] ?? null;
             return [
                 'id' => $friendUser->id,
                 'name' => $friendUser->name,
@@ -51,6 +58,8 @@ class FriendController extends Controller
                 'avatar_path' => $friendUser->profile?->avatar_path,
                 'home_area' => $friendUser->profile?->home_area,
                 'friends_since' => $f->created_at,
+                'is_favourite' => (bool) ($preference?->is_favourite ?? false),
+                'muted_at' => $preference?->muted_at,
             ];
         });
 
@@ -87,12 +96,27 @@ class FriendController extends Controller
         }
 
         $data = $request->validate([
-            'email' => ['required', 'email'],
+            'identifier' => ['nullable', 'string', 'max:180'],
+            'email' => ['nullable', 'string', 'max:180'],
         ]);
 
-        $target = User::query()->where('email', strtolower($data['email']))->first();
+        $identifier = trim((string) ($data['identifier'] ?? $data['email'] ?? ''));
+        if ($identifier === '') {
+            return response()->json(['message' => 'Enter an email, username, or friend code.'], 422);
+        }
+
+        $needle = strtolower($identifier);
+        $target = User::query()
+            ->whereRaw('LOWER(email) = ?', [$needle])
+            ->orWhereRaw('LOWER(name) = ?', [$needle])
+            ->orWhereHas('profile', function ($query) use ($needle) {
+                $query->whereRaw('LOWER(friend_code) = ?', [$needle])
+                    ->orWhereRaw('LOWER(display_name) = ?', [$needle]);
+            })
+            ->first();
+
         if (!$target) {
-            return response()->json(['message' => 'No user found with that email.'], 404);
+            return response()->json(['message' => 'No runner found with that email, username, or friend code.'], 404);
         }
 
         if ($target->id === $user->id) {
@@ -120,7 +144,7 @@ class FriendController extends Controller
             }
         }
 
-        Friend::query()->create([
+        $friend = Friend::query()->create([
             'user_id' => $user->id,
             'friend_id' => $target->id,
             'status' => 'pending',
@@ -134,7 +158,43 @@ class FriendController extends Controller
 
         Realtime::publish('notifications.updated', ['reason' => 'friend_request', 'user_id' => $user->id, 'target_user_id' => $target->id]);
 
+        TrailNotification::sendTo(
+            $target->id,
+            'friend_request',
+            'New trail ally request',
+            ($user->profile?->display_name ?: $user->name) . ' wants to connect.',
+            'Friends',
+            ['request_id' => $friend->id],
+            $user->id
+        );
+
         return response()->json(['message' => 'Friend request sent.']);
+    }
+
+    public function cancel(Request $request): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        $data = $request->validate([
+            'friend_id' => ['required', 'integer', 'exists:users,id'],
+        ]);
+
+        $deleted = Friend::query()
+            ->where('user_id', $user->id)
+            ->where('friend_id', $data['friend_id'])
+            ->where('status', 'pending')
+            ->delete();
+
+        if (!$deleted) {
+            return response()->json(['message' => 'Pending request not found.'], 404);
+        }
+
+        Realtime::publish('social.updated', ['reason' => 'friend_request_cancelled', 'user_id' => $user->id, 'friend_id' => $data['friend_id']]);
+
+        return response()->json(['message' => 'Friend request cancelled.']);
     }
 
     public function accept(Request $request): JsonResponse
@@ -179,6 +239,16 @@ class FriendController extends Controller
 
         Realtime::publish('social.updated', ['reason' => 'friend_accepted', 'user_id' => $user->id, 'friend_id' => $friendRequest->user_id]);
         Realtime::publish('notifications.updated', ['reason' => 'friend_accepted', 'user_id' => $user->id]);
+
+        TrailNotification::sendTo(
+            $friendRequest->user_id,
+            'friend_accepted',
+            'Trail ally connected',
+            ($user->profile?->display_name ?: $user->name) . ' accepted your friend request.',
+            'Social',
+            ['friend_id' => $user->id],
+            $user->id
+        );
 
         return response()->json(['message' => 'Friend request accepted.']);
     }
@@ -257,5 +327,46 @@ class FriendController extends Controller
         );
 
         return response()->json(['message' => 'Nickname saved.']);
+    }
+
+    public function updatePreference(Request $request, int $friendId): JsonResponse
+    {
+        $user = Jwt::userFromRequest($request);
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated.'], 401);
+        }
+
+        if (! $this->areFriends($user->id, $friendId)) {
+            return response()->json(['message' => 'Friend not found.'], 404);
+        }
+
+        $data = $request->validate([
+            'is_favourite' => ['sometimes', 'boolean'],
+            'muted' => ['sometimes', 'boolean'],
+        ]);
+
+        $preference = FriendPreference::query()->firstOrCreate([
+            'user_id' => $user->id,
+            'friend_id' => $friendId,
+        ]);
+
+        if (array_key_exists('is_favourite', $data)) {
+            $preference->is_favourite = (bool) $data['is_favourite'];
+        }
+        if (array_key_exists('muted', $data)) {
+            $preference->muted_at = $data['muted'] ? now() : null;
+        }
+        $preference->save();
+
+        return response()->json(['message' => 'Friend preference saved.', 'preference' => $preference]);
+    }
+
+    private function areFriends(int $a, int $b): bool
+    {
+        return Friend::query()
+            ->where('user_id', $a)
+            ->where('friend_id', $b)
+            ->where('status', 'accepted')
+            ->exists();
     }
 }

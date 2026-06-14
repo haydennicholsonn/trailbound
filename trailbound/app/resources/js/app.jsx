@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Activity, ActivitySquare, BarChart3, Bell, BookOpen, Cable, Camera, CheckCircle2, Compass, Copy, Crosshair, Droplet, Eye as EyeIcon, EyeOff, Gauge, Gem, Globe, Lock, LogOut, Map, MapPin, MessageCircle, Moon, MoreVertical, Navigation, Package as PackageIcon, RadioTower, Search, Share2, Shield, ShoppingBag, Smile, Sparkles, SquarePlus, Star, Sun, Sword, Timer, Trophy, UserCheck, UserPlus, UserRound, Users, X, Zap } from 'lucide-react';
+import { Activity, ActivitySquare, BarChart3, Bell, BookOpen, Cable, Camera, CheckCircle2, Compass, Copy, Crosshair, Droplet, Eye as EyeIcon, EyeOff, Gauge, Gem, Globe, Lock, LogOut, Map, MapPin, Maximize2, MessageCircle, Moon, MoreVertical, Navigation, Package as PackageIcon, RadioTower, Search, Share2, Shield, ShoppingBag, Smile, Sparkles, SquarePlus, Star, Sun, Sword, Timer, Trophy, UserCheck, UserPlus, UserRound, Users, X, Zap } from 'lucide-react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../css/app.css';
@@ -144,11 +144,19 @@ function BrandLogo({ compact = false }) {
 
 function AuthGate({ onAuthed }) {
   const [mode, setMode] = useState('register');
-  const [form, setForm] = useState({ name: '', email: '', password: '', runner_type: 'Pathfinder', weekly_goal_km: 15, referral_code: '', lat: null, lng: null, accuracy_m: null });
+  const [form, setForm] = useState({ name: '', email: '', password: '', runner_type: 'Pathfinder', weekly_goal_km: 15, referral_code: '', package_id: '', lat: null, lng: null, accuracy_m: null });
+  const [packages, setPackages] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [geoState, setGeoState] = useState({ status: 'idle', message: 'Trailbound starts you where you actually are. Your starting shard is based on your current location.', region: null });
+  useEffect(() => {
+    api('/api/packages').then(d => {
+      setPackages(d.packages || []);
+      const def = (d.packages || []).find(pkg => pkg.is_default) || d.packages?.[0];
+      if (def) setForm(current => current.package_id ? current : { ...current, package_id: def.id });
+    }).catch(() => setPackages([]));
+  }, []);
   useEffect(() => { if (!error) return; const id = setTimeout(() => setError(''), 5200); return () => clearTimeout(id); }, [error]);
   const passwordHint = useMemo(() => {
     if (!form.password || mode !== 'register') return '';
@@ -233,6 +241,10 @@ function AuthGate({ onAuthed }) {
             })}
           </div>
           <div className="split"><label>Weekly goal km<input type="number" min="1" max="250" value={form.weekly_goal_km} onChange={e => setForm({ ...form, weekly_goal_km: Number(e.target.value) })} /></label><label>Referral code <small>Optional friend code or username</small><input value={form.referral_code} onChange={e => setForm({ ...form, referral_code: e.target.value })} placeholder="HAYDEN-123AB" /></label></div>
+          {packages.length > 0 && <div className="signupPackages">
+            <div className="miniHead"><span>Package</span><strong>{packages.find(pkg => String(pkg.id) === String(form.package_id))?.name || 'Free'}</strong></div>
+            {packages.map(pkg => <PackageCard key={pkg.id} pkg={pkg} selected={String(form.package_id) === String(pkg.id)} onSelect={() => setForm({ ...form, package_id: pkg.id })} />)}
+          </div>}
         </>}
         <label>Email<input type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} required /></label>
         <label>Password<div className="passwordWrap"><input type={showPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} required /><button type="button" onClick={() => setShowPassword(v => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'}>{showPassword ? <EyeOff size={17} /> : <EyeIcon size={17} />}</button></div>{passwordHint && <small className={passwordHint.includes('ready') ? 'goodHint' : ''}>{passwordHint}</small>}</label>
@@ -402,6 +414,9 @@ const regionFeatureCollection = (regions) => ({
       difficulty: region.difficulty,
       status: region.status,
       progress: region.progress,
+      real_name: region.real_name || '',
+      run_count: region.run_count || 0,
+      distance_km: region.distance_km || 0,
       fill: regionColor(region),
     },
   })),
@@ -467,6 +482,8 @@ function WorldMap({ regions, friends, profile, myLocation, friendLocations, beac
   const questMarkersRef = useRef([]);
   const centeredOnMeRef = useRef(false);
   const [hovered, setHovered] = useState(null);
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const [fullScreen, setFullScreen] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -525,6 +542,11 @@ function WorldMap({ regions, friends, profile, myLocation, friendLocations, beac
         if (!props) return;
         map.getCanvas().style.cursor = 'pointer';
         setHovered({ id: props.id, name: props.name, biome: props.biome, difficulty: props.difficulty, status: props.status, progress: props.progress });
+      });
+      map.on('click', 'region-fill', (event) => {
+        const id = Number(event.features?.[0]?.properties?.id);
+        const region = regions.find(item => Number(item.id) === id);
+        if (region) setSelectedRegion(region);
       });
       map.on('mouseleave', 'region-fill', () => { map.getCanvas().style.cursor = ''; setHovered(null); });
     };
@@ -612,7 +634,7 @@ function WorldMap({ regions, friends, profile, myLocation, friendLocations, beac
   }));
 
   return (
-    <div className="mapPanel">
+    <div className={`mapPanel ${fullScreen ? 'fullScreenMap' : ''}`}>
       <div className="mapWrap">
         <div ref={mapContainer} className="mapContainer" />
         <div className="mapOverlay">
@@ -622,6 +644,7 @@ function WorldMap({ regions, friends, profile, myLocation, friendLocations, beac
           <span className={`mapLive ${realtimeConnected ? 'on' : ''}`}><RadioTower size={12} />{realtimeConnected ? 'Live shard link' : 'Reconnecting live link'}</span>
         </div>
         <div className="mapActions">
+          <button className="mapActionBtn" onClick={() => setFullScreen(v => !v)}><Maximize2 size={15} />{fullScreen ? 'Exit full map' : 'Full map'}</button>
           <button className="mapActionBtn primaryMap" onClick={onLogLocation} disabled={locationLoading}><Crosshair size={15} />{locationLoading ? 'Logging...' : myLocation ? 'Log current location' : 'Use my location'}</button>
           <button className="mapActionBtn" onClick={() => onDropBeacon?.(mapRef.current?.getCenter())}><RadioTower size={15} /> Drop rally beacon</button>
         </div>
@@ -639,21 +662,50 @@ function WorldMap({ regions, friends, profile, myLocation, friendLocations, beac
           const unl = r.status !== 'locked';
           const clr = !unl ? '#334155' : r.difficulty === 'hard' ? '#fb315f' : r.difficulty === 'starter' ? '#34d399' : '#38bdf8';
           return (
-            <div key={r.id} className={`mapRegionItem ${r.status}`}>
+            <button key={r.id} className={`mapRegionItem ${r.status}`} onClick={() => setSelectedRegion(r)} type="button">
               <span className="mrDot" style={{ background: clr, boxShadow: unl ? `0 0 8px ${clr}88` : 'none' }} />
-              <div className="mrInfo"><strong>{r.name}</strong><small>{r.biome} &middot; {r.difficulty}</small></div>
+              <div className="mrInfo"><strong>{r.name}</strong><small>{r.real_name || r.biome} &middot; {r.difficulty}</small></div>
               {(r.liveCount > 0 || r.beaconCount > 0) && <div className="pulseStack"><span><Crosshair size={11} />{r.liveCount}</span><span><RadioTower size={11} />{r.beaconCount}</span></div>}
               {unl && <div className="mrProgress"><span>{r.progress}%</span><div className="mrBar"><i style={{ width: `${r.progress}%`, background: clr }} /></div></div>}
               {!unl && <Lock size={13} className="mrLock" />}
-            </div>
+            </button>
           );
         })}
       </div>
+      {selectedRegion && <ShardModal region={selectedRegion} onClose={() => setSelectedRegion(null)} />}
     </div>
   );
 }
 
 /* ─── Feed ─── */
+function ShardModal({ region, onClose }) {
+  const activeTasks = (region.tasks || []).filter(task => task.status !== 'locked');
+  return <div className="modalBackdrop" onClick={onClose}>
+    <div className="modalContent shardModal" onClick={e => e.stopPropagation()}>
+      <button className="modalClose" onClick={onClose}><X size={20} /></button>
+      <span className="kicker">{region.status === 'locked' ? 'Fogged shard' : 'Discovered shard'}</span>
+      <div className="shardModalHead">
+        <div><h2>{region.name}</h2><p>{region.real_name || 'Cape Town region'}</p></div>
+        <Chip tone={region.status === 'locked' ? 'quiet' : 'good'}>{region.status}</Chip>
+      </div>
+      <p className="muted">{region.summary}</p>
+      <div className="questDetailGrid">
+        <div><b>{region.progress || 0}%</b><span>explored</span></div>
+        <div><b>{region.run_count || 0}</b><span>runs</span></div>
+        <div><b>{region.distance_km || 0} km</b><span>distance</span></div>
+        <div><b>{region.biome}</b><span>biome</span></div>
+      </div>
+      {region.facts?.length > 0 && <div className="shardLore">{region.facts.map((fact, index) => <p key={index}>{fact}</p>)}</div>}
+      <div className="shardQuestList">
+        <strong>Quest chain</strong>
+        {activeTasks.length === 0 ? <small className="muted">Unlock this shard to reveal its quest chain.</small> : activeTasks.map(task => <button key={task.id} onClick={() => window.dispatchEvent(new CustomEvent('trailbound:quest', { detail: { ...task, region: region.name, biome: region.biome, difficulty: region.difficulty } }))}>
+          <span>{task.title}</span><small>{task.unlock_rule} - +{task.reward_xp} XP</small><Chip>{task.status}</Chip>
+        </button>)}
+      </div>
+    </div>
+  </div>;
+}
+
 function RunDashboardModal({ run, loading, onClose }) {
   const paceValues = run?.chart?.pace || [];
   const maxPace = Math.max(...paceValues, 1);
@@ -722,6 +774,32 @@ function RunLogModal({ run, setRun, world, fileInputRef, setRunImageFiles, onSub
         <button className="primary" type="submit">Save run</button>
       </form>
     </div>
+  </div>;
+}
+
+function RunRouteMap({ runs, regions }) {
+  const plotted = (runs || []).slice(0, 12).map(run => {
+    const region = (regions || []).find(item => Number(item.id) === Number(run.region_id));
+    const [lng, lat] = region?.polygon ? regionCentroid(region.polygon) : [18.4241, -33.9249];
+    return { ...run, lng, lat, region };
+  });
+  const x = (lng) => ((lng - 18.18) / (18.82 - 18.18)) * 100;
+  const y = (lat) => ((-33.72 - lat) / (-33.72 + 34.23)) * 100;
+  return <div className="runRouteMap">
+    <div className="runRouteHead"><span className="kicker">Route memory</span><strong>{plotted.length} recent signals</strong></div>
+    <svg viewBox="0 0 100 100" role="img" aria-label="Recent run map">
+      {(regions || []).filter(region => region.polygon).map(region => {
+        const ring = region.polygon.coordinates?.[0] || [];
+        const points = ring.map(([lng, lat]) => `${x(lng)},${y(lat)}`).join(' ');
+        return <polygon key={region.id} points={points} className={region.status === 'locked' ? 'locked' : 'open'} />;
+      })}
+      {plotted.map((run, index) => <g key={run.id} transform={`translate(${x(run.lng)} ${y(run.lat)})`}>
+        <circle r={4 + Math.min(5, Number(run.distance_km || 0) / 2)} className="runPulse" />
+        <circle r="2.2" className="runPin" />
+        <text x="5" y="-4">{Number(run.distance_km).toFixed(1)}km</text>
+      </g>)}
+    </svg>
+    <p className="muted">Markers scale with distance and sit inside the shard where each run was logged.</p>
   </div>;
 }
 
@@ -804,6 +882,7 @@ function FeedPanel({ user, onlineIds, refreshKey, onOpenRun }) {
   }, [loadFeed]);
   const react = async (eventId, kind) => { await api(`/api/feed/${eventId}/reaction`, { method: 'POST', body: { kind } }); await loadFeed(); };
   const comment = async (eventId) => { const body = (commentDrafts[eventId] || '').trim(); if (!body) return; await api(`/api/feed/${eventId}/comments`, { method: 'POST', body: { body } }); setCommentDrafts(d => ({ ...d, [eventId]: '' })); setOpenComments(o => ({ ...o, [eventId]: true })); await loadFeed(); };
+  const shareEvent = async (ev) => { const text = `Trailbound update: ${(ev.user?.display_name || ev.user?.name || 'A runner')} ${ev.type.replaceAll('_', ' ')} #trailboundapp`; if (navigator.share) await navigator.share({ title: 'Trailbound', text, url: window.location.href }).catch(() => {}); else { await navigator.clipboard?.writeText(text); } };
   const setCommentDraft = (eventId, value) => setCommentDrafts(d => ({ ...d, [eventId]: value }));
   const fmt = (ev) => { const u = ev.user?.display_name || ev.user?.name || 'Someone'; const p = ev.payload || {}; switch (ev.type) { case 'run_logged': case 'run_imported': return <>{u} logged <b>{p.distance_km}km</b> and earned <b>+{p.xp} XP</b></>; case 'status_update': return <>{u} <i>&ldquo;{p.status_text}&rdquo;</i></>; case 'friend_accepted': return <>{u} formed a new trail alliance</>; case 'strava_connected': return <>{u} connected Strava</>; case 'beacon_dropped': return <>{u} dropped a rally beacon</>; default: return <>{u} had activity</>; } };
   const selectedEvent = events.find(ev => ev.id === selectedEventId);
@@ -822,6 +901,7 @@ function FeedPanel({ user, onlineIds, refreshKey, onOpenRun }) {
         <button className={ev.my_reaction === 'open_eye' ? 'active' : ''} onClick={() => react(ev.id, 'open_eye')}><span>👁</span>{ev.reactions?.open_eye || 0}</button>
         <button className={ev.my_reaction === 'closed_eye' ? 'active' : ''} onClick={() => react(ev.id, 'closed_eye')}><span>◡</span>{ev.reactions?.closed_eye || 0}</button>
         <button onClick={() => setSelectedEventId(ev.id)}><MessageCircle size={14} />{ev.comments_count || 0}</button>
+        <button onClick={() => shareEvent(ev)}><Share2 size={14} />Share</button>
         {clickable && <button onClick={() => onOpenRun?.(ev.payload.run_id)}><BarChart3 size={14} />Run</button>}
       </div>
       {commentsOpen && <div className="feedComments">
@@ -842,20 +922,22 @@ function FriendsPanel({ user, refreshKey, onNotify }) {
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => { setLoading(true); try { setFriends(await api('/api/friends')); } catch { setFriends({ friends: [], pending_received: [], pending_sent: [] }); } setLoading(false); }, []);
   useEffect(() => { load(); }, [refreshKey, load]);
-  const send = async (email) => { try { await api('/api/friends/request', { method: 'POST', body: { email } }); setSearch(''); onNotify?.('Friend request sent.'); load(); } catch (err) { onNotify?.(err.message); } };
+  const send = async (identifier) => { try { await api('/api/friends/request', { method: 'POST', body: { identifier } }); setSearch(''); onNotify?.('Friend request sent.'); load(); } catch (err) { onNotify?.(err.message); } };
+  const cancel = async (fid) => { await api('/api/friends/cancel', { method: 'POST', body: { friend_id: fid } }); onNotify?.('Friend request cancelled.'); load(); };
   const accept = async (id) => { await api('/api/friends/accept', { method: 'POST', body: { request_id: id } }); onNotify?.('Friend request accepted.'); load(); };
   const reject = async (id) => { await api('/api/friends/reject', { method: 'POST', body: { request_id: id } }); onNotify?.('Friend request rejected.'); load(); };
   const remove = async (fid) => { await api(`/api/friends/${fid}`, { method: 'DELETE' }); onNotify?.('Friend removed.'); load(); };
+  const pref = async (fid, body) => { await api(`/api/friends/${fid}/preference`, { method: 'PATCH', body }); onNotify?.('Friend preference saved.'); load(); };
   const nick = async (fid, val) => { await api(`/api/friends/${fid}/nickname`, { method: 'PATCH', body: { friend_id: fid, nickname: val } }); setNickEdit(null); onNotify?.('Nickname saved.'); load(); };
   if (loading) return <Panel eyebrow="Trail allies" title="Friends"><div className="skeletonCard"><span className="skeleton skeletonAvatar" /><div className="skeleton skeletonLine" /><div className="skeleton skeletonLine short" /></div></Panel>;
   if (!friends) return null;
   return <div className="grid">
     <Panel eyebrow="Trail allies" title={`Friends (${friends.friends.length})`}>
-      {friends.friends.length === 0 ? <div className="emptyState"><Users size={28} /><p>No allies yet. Search by email to add one.</p></div> : <div className="friendList">{friends.friends.map(f => <div key={f.id} className="friendItem"><div className="feedAvatar">{f.avatar_path ? <img src={f.avatar_path} alt="" /> : <UserRound size={18} />}</div><div className="friendMeta"><strong>{f.nickname || f.display_name || f.name}</strong>{f.nickname && <small>aka {f.display_name || f.name}</small>}<small>Lvl {f.level} &middot; {f.runner_type} &middot; {f.home_area}</small></div><div className="friendActions">{nickEdit === f.id ? <form className="inlineForm" onSubmit={e => { e.preventDefault(); nick(f.id, e.target.nickname.value); }}><input name="nickname" defaultValue={f.nickname || ''} placeholder="Nickname" /><button className="primary" type="submit">Save</button><button className="ghost" type="button" onClick={() => setNickEdit(null)}>Cancel</button></form> : <><button className="ghost" onClick={() => setNickEdit(f.id)}>Nickname</button><button className="ghost" onClick={() => remove(f.id)}><X size={14} /></button></>}</div></div>)}</div>}
+      {friends.friends.length === 0 ? <div className="emptyState"><Users size={28} /><p>No allies yet. Search by email, username, or friend code to add one.</p></div> : <div className="friendList">{friends.friends.map(f => <div key={f.id} className="friendItem"><div className="feedAvatar">{f.avatar_path ? <img src={f.avatar_path} alt="" /> : <UserRound size={18} />}</div><div className="friendMeta"><strong>{f.nickname || f.display_name || f.name}</strong>{f.nickname && <small>aka {f.display_name || f.name}</small>}<small>Lvl {f.level} &middot; {f.runner_type} &middot; {f.home_area}</small>{f.muted_at && <small>Muted</small>}</div><div className="friendActions">{nickEdit === f.id ? <form className="inlineForm" onSubmit={e => { e.preventDefault(); nick(f.id, e.target.nickname.value); }}><input name="nickname" defaultValue={f.nickname || ''} placeholder="Nickname" /><button className="primary" type="submit">Save</button><button className="ghost" type="button" onClick={() => setNickEdit(null)}>Cancel</button></form> : <><button className="ghost" onClick={() => pref(f.id, { is_favourite: !f.is_favourite })}>{f.is_favourite ? 'Starred' : 'Star'}</button><button className="ghost" onClick={() => pref(f.id, { muted: !f.muted_at })}>{f.muted_at ? 'Unmute' : 'Mute'}</button><button className="ghost" onClick={() => setNickEdit(f.id)}>Nickname</button><button className="ghost" onClick={() => remove(f.id)}><X size={14} /></button></>}</div></div>)}</div>}
     </Panel>
     <Panel eyebrow="Find allies" title="Add Friend">
-      <form onSubmit={e => { e.preventDefault(); if (search.trim()) send(search); }}><label>Email address<input type="email" value={search} onChange={e => setSearch(e.target.value)} placeholder="runner@example.com" required /></label><button className="primary" type="submit"><UserPlus size={16} /> Send Request</button></form>
-      {friends.pending_sent.length > 0 && <div className="pendingList">{friends.pending_sent.map(s => <div key={s.id} className="pendingItem"><UserRound size={16} /><span>{s.display_name || s.name}</span><small>Pending</small></div>)}</div>}
+      <form onSubmit={e => { e.preventDefault(); if (search.trim()) send(search); }}><label>Email, username, or friend code<input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="runner@example.com or TB-1234" required /></label><button className="primary" type="submit"><UserPlus size={16} /> Send Request</button></form>
+      {friends.pending_sent.length > 0 && <div className="pendingList">{friends.pending_sent.map(s => <div key={s.id} className="pendingItem"><UserRound size={16} /><span>{s.display_name || s.name}</span><small>Pending</small><button className="ghost mini" onClick={() => cancel(s.id)} type="button">Cancel</button></div>)}</div>}
     </Panel>
     {friends.pending_received.length > 0 && <Panel eyebrow="Incoming" title={`Requests (${friends.pending_received.length})`}><div className="friendList">{friends.pending_received.map(r => <div key={r.id} className="friendItem"><UserRound size={20} /><div className="friendMeta"><strong>{r.display_name || r.name}</strong></div><div className="friendActions"><button className="primary" onClick={() => accept(r.request_id)}><UserCheck size={14} /></button><button className="ghost" onClick={() => reject(r.request_id)}><X size={14} /></button></div></div>)}</div></Panel>}
   </div>;
@@ -1459,9 +1541,20 @@ function BadgeGallery({ refreshKey }) {
     </Panel>
   );
 }
-function NotificationCenter({ data, open, onToggle, onNavigate, onEnableBrowser }) {
+function NotificationCenter({ data, open, onToggle, onNavigate, onEnableBrowser, onRefresh }) {
   const unread = data?.unread_count || 0;
   const items = data?.items || [];
+  const openItem = async (item) => {
+    if (item.notification_id) {
+      await api(`/api/notifications/${item.notification_id}/read`, { method: 'POST' }).catch(() => {});
+      onRefresh?.();
+    }
+    onNavigate(item.action);
+  };
+  const readAll = async () => {
+    await api('/api/notifications/read-all', { method: 'POST' }).catch(() => {});
+    onRefresh?.();
+  };
   return <div className="notifyWrap">
     <button className={`iconBtn notifyBtn${open ? ' active' : ''}`} onClick={onToggle} title="Notifications">
       <Bell size={17} />
@@ -1470,10 +1563,10 @@ function NotificationCenter({ data, open, onToggle, onNavigate, onEnableBrowser 
     {open && <div className="notifyPanel">
       <div className="notifyHead">
         <div><strong>Notifications</strong><small>{unread > 0 ? `${unread} needs attention` : 'All caught up'}</small></div>
-        <button className="ghost mini" onClick={onEnableBrowser}>Browser alerts</button>
+        <div className="notifyHeadActions"><button className="ghost mini" onClick={readAll}>Mark read</button><button className="ghost mini" onClick={onEnableBrowser}>Browser alerts</button></div>
       </div>
       {items.length === 0 ? <div className="emptyState" style={{ padding: '18px 8px' }}><Bell size={22} /><p style={{ fontSize: '.78rem' }}>No updates yet. The shard is quiet.</p></div> : <div className="notifyList">
-        {items.map(item => <button key={item.id} onClick={() => onNavigate(item.action)} className={item.kind === 'message' || item.kind === 'friend_request' ? 'important' : ''}>
+        {items.map(item => <button key={item.id} onClick={() => openItem(item)} className={`${item.kind === 'message' || item.kind === 'friend_request' ? 'important' : ''}${item.read_at ? ' read' : ' unread'}`}>
           <span className="notifyKind">{item.kind.replaceAll('_', ' ')}</span>
           <strong>{item.title}</strong>
           <small>{item.body}</small>
@@ -1481,6 +1574,33 @@ function NotificationCenter({ data, open, onToggle, onNavigate, onEnableBrowser 
       </div>}
     </div>}
   </div>;
+}
+
+function NotificationPreferencesPanel({ onSaved }) {
+  const [preferences, setPreferences] = useState(null);
+  useEffect(() => { api('/api/notifications/preferences').then(d => setPreferences(d.preferences)).catch(() => setPreferences(null)); }, []);
+  const toggle = async (key) => {
+    const next = { ...(preferences || {}), [key]: !preferences?.[key] };
+    setPreferences(next);
+    await api('/api/notifications/preferences', { method: 'PATCH', body: { [key]: next[key] } });
+    onSaved?.('Notification preference saved.');
+  };
+  const labels = {
+    friend_requests: 'Friend requests',
+    messages: 'Messages',
+    feed: 'Feed reactions and comments',
+    runs: 'Friend run alerts',
+    quests: 'Quest and reward updates',
+  };
+  return <Panel eyebrow="Notifications" title="Signal controls">
+    <p className="muted">Choose what Orrin should surface in the notification tray and browser alerts.</p>
+    {!preferences ? <div className="skeletonCard"><div className="skeleton skeletonLine" /><div className="skeleton skeletonLine short" /></div> : <div className="preferenceList">
+      {Object.entries(labels).map(([key, label]) => <button key={key} className={preferences[key] ? 'on' : ''} onClick={() => toggle(key)} type="button">
+        <span><strong>{label}</strong><small>{preferences[key] ? 'Enabled' : 'Muted'}</small></span>
+        <i />
+      </button>)}
+    </div>}
+  </Panel>;
 }
 
 function AdminPanel() {
@@ -1547,6 +1667,30 @@ function AdminPanel() {
         <div className="adminEconStat">
           <strong>{stats.totals.referrals ?? 0}</strong>
           <span>Referral links</span>
+        </div>
+      </div>
+    </Panel>
+    <Panel eyebrow="Growth" title="Referral signal">
+      <div className="adminSplitList">
+        <div>
+          <strong>Top referrers</strong>
+          {(stats.referrals || []).length === 0 ? <p className="muted">No referrals yet.</p> : (stats.referrals || []).map(ref => <div key={ref.id} className="adminMiniRow"><span><b>{ref.name}</b><small>{ref.friend_code || ref.email}</small></span><Chip tone="good">{ref.referrals} invited</Chip></div>)}
+        </div>
+        <div>
+          <strong>Recent joins</strong>
+          {(stats.recentReferrals || []).length === 0 ? <p className="muted">Referral trail is quiet.</p> : (stats.recentReferrals || []).map((ref, index) => <div key={index} className="adminMiniRow"><span><b>{ref.child_name}</b><small>via {ref.parent_display_name || ref.parent_name}</small></span><small>{new Date(ref.created_at).toLocaleDateString()}</small></div>)}
+        </div>
+      </div>
+    </Panel>
+    <Panel eyebrow="Commercial" title="Packages & challenges">
+      <div className="adminSplitList">
+        <div>
+          <strong>Package mix</strong>
+          {(stats.packageMix || []).map(pkg => <div key={pkg.id} className="adminMiniRow"><span><b>{pkg.name}</b><small>{pkg.price_cents ? `R${(pkg.price_cents / 100).toFixed(0)}` : 'Free'} plan</small></span><Chip>{pkg.users} users</Chip></div>)}
+        </div>
+        <div>
+          <strong>Challenge mix</strong>
+          {(stats.challengeMix || []).map((item, index) => <div key={index} className="adminMiniRow"><span><b>{item.type}</b><small>{item.status}</small></span><Chip>{item.total}</Chip></div>)}
         </div>
       </div>
     </Panel>
@@ -1969,7 +2113,7 @@ function AppShell({ initialUser }) {
           <button className="iconBtn" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} title={`${theme === 'dark' ? 'Light' : 'Dark'} mode`}>
             {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
           </button>
-          <NotificationCenter data={notifications} open={notificationsOpen} onToggle={() => setNotificationsOpen(v => !v)} onNavigate={navigateFromNotification} onEnableBrowser={enableBrowserNotifications} />
+          <NotificationCenter data={notifications} open={notificationsOpen} onToggle={() => setNotificationsOpen(v => !v)} onNavigate={navigateFromNotification} onEnableBrowser={enableBrowserNotifications} onRefresh={loadNotifications} />
         </div>
         {active === 'Dashboard' && <header className="hero">
           <div className="heroText">
@@ -2017,6 +2161,7 @@ function AppShell({ initialUser }) {
             <PremiumStatCard icon={Compass} value={unlocked.length} label="Regions open" context={`${world.regions.length} Cape Town zones`} progress={world.regions.length ? (unlocked.length / world.regions.length) * 100 : 0} />
           </div>
           <Panel eyebrow="History" title={`${world.recent_runs?.length || 0} recent runs`}><div className="panelActions"><button className="primary" onClick={() => setRunLogOpen(true)}>Log a run</button></div>{(world.recent_runs || []).length === 0 ? <div className="emptyState"><Activity size={28} /><p>No runs yet. Log one above or sync from Strava.</p></div> : <div className="taskList runHistoryList">{(world.recent_runs || []).map(r => <button key={r.id} className="taskItem clickable runHistoryItem" onClick={() => openRunDashboard(r.id)}><div><strong>{r.distance_km} km</strong><small>{r.duration_minutes} min &middot; {new Date(r.run_at).toLocaleDateString()}</small></div><div className="taskMeta"><span>{r.source}</span><b>+{r.xp_awarded} XP</b></div>{r.image_paths?.length > 0 && <div className="runImgs">{r.image_paths.map((p, i) => <img key={i} src={p} alt="" />)}</div>}</button>)}</div>}</Panel>
+          <Panel eyebrow="Map memory" title="Run signals"><RunRouteMap runs={world.recent_runs || []} regions={world.regions} /></Panel>
         </div>}
 
         {active === 'Social' && <SocialPanel user={user} onlineIds={onlineIds} refreshKey={refreshKey} onOpenRun={openRunDashboard} setMessage={setMessage} friends={friends} />}
@@ -2042,6 +2187,7 @@ function AppShell({ initialUser }) {
         {active === 'Settings' && <div className="grid">
           <AppearancePanel theme={theme} setTheme={setTheme} palette={palette} setPalette={setPalette} />
           <Panel eyebrow="Runner type" title={user.profile?.runner_type || 'Pathfinder'}><div className="classGrid">{runnerClasses.map(c => <button key={c.id} className={user.profile?.runner_type === c.id ? 'primary' : 'ghost'} onClick={() => saveProfile({ display_name: user.profile?.display_name || user.name, home_area: user.profile?.home_area || 'City Bowl', runner_type: c.id, weekly_goal_km: user.profile?.weekly_goal_km || 15, privacy_level: user.profile?.privacy_level || 'private', mobile_menu_side: mobileMenuSide })}>{c.title}</button>)}</div></Panel>
+          <NotificationPreferencesPanel onSaved={setMessage} />
           <Panel eyebrow="Accessibility" title="Mobile controls"><p className="muted">Move the floating Orrin menu toggle to the side that is easiest to reach.</p><div className="themeSwitch"><button className={mobileMenuSide === 'left' ? 'active' : ''} onClick={() => updateMobileSide('left')} type="button">Left</button><button className={mobileMenuSide === 'right' ? 'active' : ''} onClick={() => updateMobileSide('right')} type="button">Right</button></div><button className="ghost" type="button" onClick={() => setShowTutorial(true)}><BookOpen size={15} />Replay tutorial</button></Panel>
           <Panel eyebrow="Strava" title={stravaConnected ? 'Connected' : 'Disconnected'}><p className="muted">Route visibility defaults to private.</p>{stravaConnected ? <button className="ghostBtn" onClick={disconnectStrava}>Disconnect Strava</button> : <button className="primary" onClick={connectStrava} disabled={stravaLoading}><Cable size={15} /> Connect Strava</button>}</Panel>
           <Panel eyebrow="Danger zone" title="Data"><p className="muted">You can disconnect Strava at any time. Imported activities remain in your history.</p></Panel>

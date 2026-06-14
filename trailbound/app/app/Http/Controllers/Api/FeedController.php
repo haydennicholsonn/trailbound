@@ -7,6 +7,7 @@ use App\Models\ActivityEvent;
 use App\Models\FeedComment;
 use App\Models\FeedReaction;
 use App\Models\Friend;
+use App\Models\TrailNotification;
 use App\Support\Jwt;
 use App\Support\Realtime;
 use Illuminate\Http\JsonResponse;
@@ -98,6 +99,18 @@ class FeedController extends Controller
                 ['activity_event_id' => $event->id, 'user_id' => $user->id],
                 ['kind' => $data['kind']]
             );
+
+            if ($event->user_id !== $user->id) {
+                TrailNotification::sendTo(
+                    $event->user_id,
+                    'feed_reaction',
+                    $data['kind'] === 'open_eye' ? 'Someone eyed your post' : 'Someone blinked at your post',
+                    ($user->profile?->display_name ?: $user->name) . ' reacted to your activity.',
+                    'Feed',
+                    ['event_id' => $event->id, 'reaction' => $data['kind']],
+                    $user->id
+                );
+            }
         }
 
         Realtime::publish('feed.updated', ['event_id' => $event->id]);
@@ -124,6 +137,18 @@ class FeedController extends Controller
         ]);
 
         Realtime::publish('feed.updated', ['event_id' => $event->id]);
+
+        if ($event->user_id !== $user->id) {
+            TrailNotification::sendTo(
+                $event->user_id,
+                'feed_comment',
+                'New comment',
+                ($user->profile?->display_name ?: $user->name) . ' replied: ' . str($comment->body)->limit(72),
+                'Feed',
+                ['event_id' => $event->id, 'comment_id' => $comment->id],
+                $user->id
+            );
+        }
 
         return response()->json([
             'comment' => [

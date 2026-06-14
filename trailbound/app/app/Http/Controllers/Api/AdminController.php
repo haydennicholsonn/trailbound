@@ -106,7 +106,50 @@ class AdminController extends Controller
             ->limit(12)
             ->get();
 
-        return response()->json(compact('totals', 'players', 'regions', 'quests', 'activity'));
+        $referrals = User::query()
+            ->with('profile')
+            ->withCount(['referrals'])
+            ->having('referrals_count', '>', 0)
+            ->orderByDesc('referrals_count')
+            ->limit(10)
+            ->get()
+            ->map(fn (User $player) => [
+                'id' => $player->id,
+                'name' => $player->profile?->display_name ?: $player->name,
+                'email' => $player->email,
+                'friend_code' => $player->profile?->friend_code,
+                'referrals' => $player->referrals_count,
+            ]);
+
+        $recentReferrals = DB::table('user_profiles as child_profiles')
+            ->join('users as children', 'children.id', '=', 'child_profiles.user_id')
+            ->join('users as parents', 'parents.id', '=', 'child_profiles.referred_by_user_id')
+            ->leftJoin('user_profiles as parent_profiles', 'parent_profiles.user_id', '=', 'parents.id')
+            ->whereNotNull('child_profiles.referred_by_user_id')
+            ->latest('children.created_at')
+            ->limit(12)
+            ->get([
+                'children.name as child_name',
+                'children.email as child_email',
+                'parents.name as parent_name',
+                'parent_profiles.display_name as parent_display_name',
+                'children.created_at',
+            ]);
+
+        $packageMix = DB::table('packages')
+            ->leftJoin('user_profiles', 'user_profiles.package_id', '=', 'packages.id')
+            ->select('packages.id', 'packages.name', 'packages.slug', 'packages.price_cents', DB::raw('count(user_profiles.id) as users'))
+            ->groupBy('packages.id', 'packages.name', 'packages.slug', 'packages.price_cents')
+            ->orderBy('packages.sort_order')
+            ->get();
+
+        $challengeMix = Challenge::query()
+            ->select('status', 'type', DB::raw('count(*) as total'))
+            ->groupBy('status', 'type')
+            ->orderBy('type')
+            ->get();
+
+        return response()->json(compact('totals', 'players', 'regions', 'quests', 'activity', 'referrals', 'recentReferrals', 'packageMix', 'challengeMix'));
     }
 
     private function isAdmin(?User $user): bool

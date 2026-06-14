@@ -7,7 +7,9 @@ use App\Models\ActivityEvent;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Friend;
+use App\Models\FriendPreference;
 use App\Models\Message;
+use App\Models\TrailNotification;
 use App\Models\User;
 use App\Support\Jwt;
 use App\Support\Realtime;
@@ -143,6 +145,31 @@ class MessageController extends Controller
 
         Realtime::publish('messages.updated', ['conversation_id' => $conversation->id, 'user_id' => $userId]);
         Realtime::publish('notifications.updated', ['reason' => 'message', 'user_id' => $userId]);
+
+        $sender = User::query()->with('profile')->find($userId);
+        ConversationParticipant::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('user_id', '!=', $userId)
+            ->pluck('user_id')
+            ->each(function (int $recipientId) use ($conversation, $sender, $body, $userId) {
+                $muted = FriendPreference::query()
+                    ->where('user_id', $recipientId)
+                    ->where('friend_id', $userId)
+                    ->whereNotNull('muted_at')
+                    ->exists();
+
+                if (! $muted) {
+                    TrailNotification::sendTo(
+                        $recipientId,
+                        'message',
+                        'New whisper',
+                        ($sender?->profile?->display_name ?: $sender?->name ?: 'A trail ally') . ': ' . str($body)->limit(72),
+                        'Messages',
+                        ['conversation_id' => $conversation->id],
+                        $userId
+                    );
+                }
+            });
 
         return $message;
     }

@@ -32,6 +32,7 @@ class AuthController extends Controller
             'runner_type' => ['nullable', 'string', 'max:60'],
             'weekly_goal_km' => ['nullable', 'numeric', 'min:1', 'max:250'],
             'referral_code' => ['nullable', 'string', 'max:120'],
+            'package_id' => ['nullable', 'exists:packages,id'],
         ], $this->registrationMessages());
 
         $region = $this->regionFor((float) $data['lat'], (float) $data['lng']);
@@ -48,7 +49,17 @@ class AuthController extends Controller
             'password' => Hash::make($data['password']),
         ]);
 
-        $freePackage = Package::query()->where('is_default', true)->first();
+        $package = ! empty($data['package_id'])
+            ? Package::query()->where('id', $data['package_id'])->where('is_active', true)->first()
+            : Package::query()->where('is_default', true)->first();
+
+        if (! $package) {
+            return response()->json(['message' => 'Selected package is not available.'], 422);
+        }
+        if ($package->price_cents > 0) {
+            return response()->json(['message' => 'Paid packages are coming soon. Choose Free for now.'], 422);
+        }
+
         UserProfile::query()->create([
             'user_id' => $user->id,
             'display_name' => $data['name'],
@@ -59,7 +70,7 @@ class AuthController extends Controller
             'runner_type' => $data['runner_type'] ?? 'Pathfinder',
             'weekly_goal_km' => $data['weekly_goal_km'] ?? 15,
             'privacy_level' => 'private',
-            'package_id' => $freePackage?->id,
+            'package_id' => $package->id,
         ]);
 
         UserRegionProgress::query()->firstOrCreate(

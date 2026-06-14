@@ -8,6 +8,8 @@ use App\Models\Region;
 use App\Models\RunActivity;
 use App\Models\Task;
 use App\Models\Friend;
+use App\Models\FriendPreference;
+use App\Models\TrailNotification;
 use App\Models\UserItem;
 use App\Models\UserRegionProgress;
 use App\Models\UserTask;
@@ -35,8 +37,10 @@ class WorldController extends Controller
                 'id' => $region->id,
                 'key' => $region->key,
                 'name' => $region->name,
+                'real_name' => $region->real_name,
                 'biome' => $region->biome,
                 'summary' => $region->summary,
+                'facts' => $region->facts ?? [],
                 'difficulty' => $region->difficulty,
                 'map_x' => $region->map_x,
                 'map_y' => $region->map_y,
@@ -44,6 +48,8 @@ class WorldController extends Controller
                 'start_keywords' => $region->start_keywords,
                 'status' => $progress[$region->id]->status ?? 'locked',
                 'progress' => $progress[$region->id]->progress ?? 0,
+                'run_count' => $region->runActivities()->count(),
+                'distance_km' => round((float) $region->runActivities()->sum('distance_km'), 2),
                 'tasks' => $region->tasks->map(fn (Task $task) => [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -112,6 +118,26 @@ class WorldController extends Controller
                 'region_id' => $data['region_id'],
             ],
         ]);
+
+        $mutedBy = FriendPreference::query()
+            ->where('friend_id', $user->id)
+            ->whereNotNull('muted_at')
+            ->pluck('user_id');
+
+        Friend::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'accepted')
+            ->whereNotIn('friend_id', $mutedBy)
+            ->pluck('friend_id')
+            ->each(fn (int $friendId) => TrailNotification::sendTo(
+                $friendId,
+                'run_logged',
+                'Friend run logged',
+                ($user->profile?->display_name ?: $user->name) . ' logged ' . $data['distance_km'] . 'km.',
+                'Feed',
+                ['run_id' => $run->id, 'region_id' => $data['region_id']],
+                $user->id
+            ));
 
         Realtime::publish('world.updated', ['reason' => 'run', 'user_id' => $user->id, 'region_id' => $data['region_id']]);
         Realtime::publish('notifications.updated', ['reason' => 'run', 'user_id' => $user->id]);
