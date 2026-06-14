@@ -123,10 +123,11 @@ class AdminController extends Controller
         $referrals = User::query()
             ->with('profile')
             ->withCount(['referrals'])
-            ->having('referrals_count', '>', 0)
             ->orderByDesc('referrals_count')
             ->limit(10)
             ->get()
+            ->filter(fn (User $player) => (int) $player->referrals_count > 0)
+            ->values()
             ->map(fn (User $player) => [
                 'id' => $player->id,
                 'name' => $player->profile?->display_name ?: $player->name,
